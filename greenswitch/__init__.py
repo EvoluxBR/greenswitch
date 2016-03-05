@@ -4,7 +4,7 @@
 GreenSWITCH: FreeSWITCH Event Socket Protocol
 ---------------------------------------------
 
-Complete documentation at https://github.com/italorossi/greenswitch
+Complete documentation at https://github.com/evoluxbr/greenswitch
 
 """
 

@@ -18,7 +18,7 @@ setup(
     long_description=readme,
     author=u'Ítalo Rossi',
     author_email=u'italorossib@gmail.com',
-    url=u'https://github.com/italorossi/greenswitch',
+    url=u'https://github.com/evoluxbr/greenswitch',
     license=u'MIT',
     packages=find_packages(exclude=('tests', 'docs')),
     classifiers=[
