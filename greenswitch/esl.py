@@ -2,6 +2,7 @@
 import gevent
 from gevent.queue import Queue
 import gevent.socket as socket
+from gevent.event import Event
 import logging
 import pprint
 
@@ -42,7 +43,7 @@ class InboundESL(object):
         self._run = True
         self._EOL = '\n'
         self._commands_sent = []
-        self._auth_request_event = gevent.event.Event()
+        self._auth_request_event = Event()
         self._receive_events_greenlet = None
         self._process_events_greenlet = None
         self.event_handlers = {}

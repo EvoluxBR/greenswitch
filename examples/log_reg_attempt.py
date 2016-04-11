@@ -5,7 +5,7 @@
 from __future__ import print_function
 
 import logging
-import time
+import gevent
 import greenswitch
 
 
@@ -21,7 +21,7 @@ fs.send('EVENTS PLAIN ALL')
 print('Connected to FreeSWITCH!')
 while True:
     try:
-        time.sleep(1)
+        gevent.sleep(1)
     except KeyboardInterrupt:
         fs.stop()
         break
