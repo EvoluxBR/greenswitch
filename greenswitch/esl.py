@@ -57,12 +57,12 @@ class InboundESL(object):
         self.sock.settimeout(self.timeout)
         self.sock.connect((self.host, self.port))
         self.connected = True
+        self.sock.settimeout(None)
         self.sock_file = self.sock.makefile()
         self._receive_events_greenlet = gevent.spawn(self.receive_events)
         self._process_events_greenlet = gevent.spawn(self.process_events)
         self._auth_request_event.wait()
         self.authenticate()
-        self.sock.settimeout(None)
 
     def receive_events(self):
         buf = ''
