@@ -25,7 +25,7 @@ class TestInboundESLBase(unittest.TestCase):
 
     def tearDown(self):
         super(TestInboundESLBase, self).tearDown()
-        self.esl.sock.close()
+        self.esl.stop()
         self.switch_esl.stop()
 
     def send_fake_event_plain(self, data):
