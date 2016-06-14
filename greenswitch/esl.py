@@ -57,6 +57,7 @@ class InboundESL(object):
         self.sock.settimeout(self.timeout)
         self.sock.connect((self.host, self.port))
         self.connected = True
+        self.sock_file = self.sock.makefile()
         self._receive_events_greenlet = gevent.spawn(self.receive_events)
         self._process_events_greenlet = gevent.spawn(self.process_events)
         self._auth_request_event.wait()
@@ -67,7 +68,7 @@ class InboundESL(object):
         buf = ''
         while self._run:
             try:
-                data = self.sock.recv(1)
+                data = self.sock_file.readline()
             except Exception:
                 self._run = False
                 self.connected = False
@@ -79,7 +80,8 @@ class InboundESL(object):
                     logging.error("Error receiving data, is FreeSWITCH running?")
                     self.connected = False
                 break
-            if data == self._EOL and buf[-1] == self._EOL:
+            # Empty line
+            if data == self._EOL:
                 event = ESLEvent(buf)
                 buf = ''
                 self.handle_event(event)
@@ -89,7 +91,7 @@ class InboundESL(object):
     @staticmethod
     def _read_socket(sock, length):
         """Receive data from socket until the length is reached."""
-        data = sock.recv(length)
+        data = sock.read(length)
         data_length = len(data)
         while data_length < length:
             logging.warn(
@@ -97,7 +99,8 @@ class InboundESL(object):
                 'Consider increasing "net.core.rmem_default".' %
                 (length, data_length)
             )
-            data += sock.recv(length - data_length)
+            # FIXME(italo): if not data raise error
+            data += sock.read(length - data_length)
             data_length = len(data)
         return data
 
@@ -110,7 +113,7 @@ class InboundESL(object):
             async_response.set(event)
         elif event.headers['Content-Type'] == 'api/response':
             length = int(event.headers['Content-Length'])
-            data = self._read_socket(self.sock, length)
+            data = self._read_socket(self.sock_file, length)
             event.data = data
             async_response = self._commands_sent.pop(0)
             async_response.set(event)
@@ -118,7 +121,7 @@ class InboundESL(object):
             self.connected = False
         else:
             length = int(event.headers['Content-Length'])
-            data = self._read_socket(self.sock, length)
+            data = self._read_socket(self.sock_file, length)
             event.parse_data(data)
             self._esl_event_queue.put(event)
 
@@ -189,3 +192,4 @@ class InboundESL(object):
         self._process_events_greenlet.join()
         if self.connected:
             self.sock.close()
+            self.sock_file.close()
