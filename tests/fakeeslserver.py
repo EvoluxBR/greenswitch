@@ -104,10 +104,11 @@ class FakeESLServer(object):
         self._client_socket.close()
 
     def stop(self):
+        self._client_socket.close()
+        self.server.close()
         if self._running:
             self._running = False
             self._read_thread.join(5)
-        self.server.close()
 
 
 def main():
