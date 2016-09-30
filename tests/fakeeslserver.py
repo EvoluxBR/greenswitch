@@ -31,19 +31,19 @@ class FakeESLServer(object):
         self._read_thread.start()
 
     def command_reply(self, data):
-        self._client_socket.send('Content-Type: command/reply\n')
-        self._client_socket.send('Reply-Text: %s\n\n' % data)
+        self._client_socket.send('Content-Type: command/reply\n'.encode('utf-8'))
+        self._client_socket.send(('Reply-Text: %s\n\n' % data).encode('utf-8'))
 
     def protocol_send(self, lines):
         for line in lines:
-            self._client_socket.send(line + '\n')
-        self._client_socket.send('\n')
+            self._client_socket.send((line + '\n').encode('utf-8'))
+        self._client_socket.send('\n'.encode('utf-8'))
 
     def api_response(self, data):
         data_length = len(data)
-        self._client_socket.send('Content-Type: api/response\n')
-        self._client_socket.send('Content-Length: %d\n\n' % data_length)
-        self._client_socket.send(data)
+        self._client_socket.send('Content-Type: api/response\n'.encode('utf-8'))
+        self._client_socket.send(('Content-Length: %d\n\n' % data_length).encode('utf-8'))
+        self._client_socket.send(data.encode('utf-8'))
 
     def handle_request(self, request):
         if request.startswith('auth'):
@@ -81,7 +81,7 @@ class FakeESLServer(object):
                     self._running = False
                     self.server.close()
                     break
-                buf += read
+                buf += read.decode('utf-8')
                 if buf[-2:] == '\n\n' or buf[-4:] == '\r\n\r\n':
                     request = buf
                     break
@@ -98,8 +98,8 @@ class FakeESLServer(object):
     def disconnect(self):
         self.protocol_send(['Content-Type: text/disconnect-notice',
                             'Content-Length: 67'])
-        self._client_socket.send('Disconnected, goodbye.\n')
-        self._client_socket.send('See you at ClueCon! http://www.cluecon.com/\n')
+        self._client_socket.send('Disconnected, goodbye.\n'.encode('utf-8'))
+        self._client_socket.send('See you at ClueCon! http://www.cluecon.com/\n'.encode('utf-8'))
         self._running = False
         self._client_socket.close()
 

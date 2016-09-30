@@ -1,12 +1,16 @@
 # Gevent imports
 import gevent
+import sys
 from gevent.queue import Queue
 import gevent.socket as socket
 from gevent.event import Event
 import logging
 import pprint
 
-import urllib
+if sys.version_info > (3,):
+    from urllib.parse import unquote
+else:
+    from urllib import unquote
 
 
 class NotConnectedError(Exception):
@@ -19,8 +23,8 @@ class ESLEvent(object):
 
     def parse_data(self, data):
         headers = {}
-        data = urllib.unquote(data)
-        data = data.strip().split('\n')
+        data = unquote(data)
+        data = data.strip().splitlines()
         last_key = None
         value = ''
         for line in data:
@@ -158,7 +162,7 @@ class InboundESL(object):
             raise NotConnectedError()
         async_response = gevent.event.AsyncResult()
         self._commands_sent.append(async_response)
-        raw_msg = data + self._EOL*2
+        raw_msg = (data + self._EOL*2).encode('utf-8')
         self.sock.send(raw_msg)
         response = async_response.get()
         return response
