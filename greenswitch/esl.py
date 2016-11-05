@@ -6,11 +6,7 @@ import gevent.socket as socket
 from gevent.event import Event
 import logging
 import pprint
-
-if sys.version_info > (3,):
-    from urllib.parse import unquote
-else:
-    from urllib import unquote
+from six.moves.urllib.parse import unquote
 
 
 class NotConnectedError(Exception):
