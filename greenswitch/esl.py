@@ -125,6 +125,13 @@ class InboundESL(object):
             event.parse_data(data)
             self._esl_event_queue.put(event)
 
+    def _safe_exec_handler(self, handler, event):
+        try:
+            handler(event)
+        except:
+            logging.exception('ESL %s raised exception.' % handler.__name__)
+            logging.error(pprint.pformat(event.headers))
+
     def process_events(self):
         logging.debug('Event Processor Running')
         while self._run:
@@ -144,14 +151,14 @@ class InboundESL(object):
             if not handlers:
                 continue
 
+            if hasattr(self, 'before_handle'):
+                self._safe_exec_handler(self.before_handle, event)
+
             for handle in handlers:
-                try:
-                    handle(event)
-                except:
-                    logging.exception(
-                        'ESL handler %s raised exception.' %
-                        handle.__name__)
-                    logging.error(pprint.pformat(event.headers))
+                self._safe_exec_handler(handle, event)
+
+            if hasattr(self, 'after_handle'):
+                self._safe_exec_handler(self.after_handle, event)
 
     def send(self, data):
         if not self.connected:
