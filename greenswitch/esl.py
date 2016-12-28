@@ -122,7 +122,10 @@ class InboundESL(object):
         else:
             length = int(event.headers['Content-Length'])
             data = self._read_socket(self.sock_file, length)
-            event.parse_data(data)
+            if event.headers.get('Content-Type') == 'log/data':
+                event.data = data
+            else:
+                event.parse_data(data)
             self._esl_event_queue.put(event)
 
     def _safe_exec_handler(self, handler, event):
@@ -148,6 +151,10 @@ class InboundESL(object):
                 handlers = self.event_handlers.get(event.headers.get('Event-Subclass'))
             else:
                 handlers = self.event_handlers.get(event.headers.get('Event-Name'))
+
+            if not handlers and event.headers.get('Content-Type') == 'log/data':
+                handlers = self.event_handlers.get('log')
+
             if not handlers:
                 continue
 

@@ -128,6 +128,28 @@ class TestInboundESL(TestInboundESLBase):
         self.send_fake_event_plain(event_plain)
         self.assertTrue(self.esl.heartbeat)
 
+    def test_event_socket_data(self):
+        """Should call registered handler for events."""
+        self.log = False
+
+        def on_log(event):
+            self.log = True
+        self.esl.register_handle('log', on_log)
+        event_plain = dedent("""\
+            Content-Type: log/data
+            Content-Length: 126
+            Log-Level: 7
+            Text-Channel: 3
+            Log-File: switch_core_state_machine.c
+            Log-Func: switch_core_session_destroy_state
+            Log-Line: 710
+            User-Data: 4c882cc4-cd02-11e6-8b82-395b501876f9
+
+            2016-12-28 10:34:08.398763 [DEBUG] switch_core_state_machine.c:710 (sofia/internal/7071@devitor) State DESTROY going to sleep
+""")
+        self.send_fake_raw_event_plain(event_plain)
+        self.assertTrue(self.log)
+
     def test_event_with_multiline_channel_variables_content(self):
         """Should not break parse from ESL Event when."""
         def on_channel_create(self, event):
