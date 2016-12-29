@@ -95,6 +95,9 @@ class FakeESLServer(object):
                             'Content-Length: %s' % len(data)])
         self._client_socket.send(data)
 
+    def fake_raw_event_plain(self, data):
+        self._client_socket.send(data)
+
     def disconnect(self):
         self.protocol_send(['Content-Type: text/disconnect-notice',
                             'Content-Length: 67'])

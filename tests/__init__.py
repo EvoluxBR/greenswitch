@@ -32,6 +32,11 @@ class TestInboundESLBase(unittest.TestCase):
         self.switch_esl.fake_event_plain(data.encode('utf-8'))
         gevent.sleep(0.1)
 
+    def send_fake_raw_event_plain(self, data):
+        self.switch_esl.fake_raw_event_plain(data.encode('utf-8'))
+        gevent.sleep(0.1)
+
+
     def send_batch_fake_event_plain(self, events):
         for event in events:
             self.send_fake_event_plain(event)
