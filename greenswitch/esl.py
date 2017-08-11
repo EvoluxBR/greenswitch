@@ -62,6 +62,8 @@ class InboundESL(object):
         self._receive_events_greenlet = gevent.spawn(self.receive_events)
         self._process_events_greenlet = gevent.spawn(self.process_events)
         self._auth_request_event.wait()
+        if not self.connected:
+            raise NotConnectedError('Server closed connection, check FreeSWITCH config.')
         self.authenticate()
 
     def receive_events(self):
@@ -119,6 +121,11 @@ class InboundESL(object):
             async_response.set(event)
         elif event.headers['Content-Type'] == 'text/disconnect-notice':
             self.connected = False
+        elif event.headers['Content-Type'] == 'text/rude-rejection':
+            self.connected = False
+            length = int(event.headers['Content-Length'])
+            self._read_socket(self.sock_file, length)
+            self._auth_request_event.set()
         else:
             length = int(event.headers['Content-Length'])
             data = self._read_socket(self.sock_file, length)
