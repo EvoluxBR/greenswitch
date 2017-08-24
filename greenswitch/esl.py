@@ -240,6 +240,14 @@ class OutboundSession(ESLProtocol):
         self.register_handle('CHANNEL_HANGUP', self.on_hangup)
         self.expected_events = {}
 
+    @property
+    def uuid(self):
+        return self.session_data.get('variable_uuid')
+
+    @property
+    def call_uuid(self):
+        return self.session_data.get('variable_call_uuid')
+
     def on_hangup(self, event):
         # FIXME(italo): call still up waiting to the server to close the
         # connection, not sure why.
@@ -296,8 +304,21 @@ class OutboundSession(ESLProtocol):
     def linger(self):
         self.send('linger')
 
-    def playback(self, path):
+    def playback(self, path, block=True):
+        if not block:
+            self.call_command('playback', path)
+            return
+
+        async_response = gevent.event.AsyncResult()
+        expected_event = "CHANNEL_EXECUTE_COMPLETE"
+        expected_variable = "current_application"
+        expected_variable_value = "playback"
+        self.register_expected_event(expected_event, expected_variable,
+                                     expected_variable_value, async_response)
         self.call_command('playback', path)
+        event = async_response.get(block=True)
+        # TODO(italo): Decide what we need to return. Returning whole event right now
+        return event
 
     def play_and_get_digits(self, min_digits=None, max_digits=None,
                             max_attempts=None, timeout=None, terminators=None, prompt_file=None,
@@ -309,6 +330,7 @@ class OutboundSession(ESLProtocol):
                                                   error_file, variable, digits_regex,
                                                   digit_timeout, transfer_on_fail)
         if not block:
+            self.call_command('play_and_get_digits', args)
             return
 
         async_response = gevent.event.AsyncResult()
@@ -332,6 +354,11 @@ class OutboundSession(ESLProtocol):
                                                     expected_value,
                                                     async_response))
 
+    def hangup(self, cause='NORMAL_CLEARING'):
+        self.send('api uuid_kill %s %s' % (self.uuid, cause))
+
+    def uuid_break(self):
+        self.send('api uuid_break %s' % self.uuid)
 
 
 class OutboundESLServer(object):
