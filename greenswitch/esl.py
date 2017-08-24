@@ -355,7 +355,7 @@ class OutboundSession(ESLProtocol):
                                                     async_response))
 
     def hangup(self, cause='NORMAL_CLEARING'):
-        self.send('api uuid_kill %s %s' % (self.uuid, cause))
+        self.call_command('hangup', cause)
 
     def uuid_break(self):
         self.send('api uuid_break %s' % self.uuid)
