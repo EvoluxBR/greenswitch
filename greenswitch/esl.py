@@ -354,7 +354,7 @@ class OutboundSession(ESLProtocol):
 
         args = "%s %s %s %s %s" % (module_name, say_type, say_method, gender, text)
         if not block:
-            self.call_command('play_and_get_digits', args)
+            self.call_command('say', args)
             return
 
         async_response = gevent.event.AsyncResult()
@@ -363,7 +363,7 @@ class OutboundSession(ESLProtocol):
         expected_variable_value = "say"
         self.register_expected_event(expected_event, expected_variable,
                                      expected_variable_value, async_response)
-        self.call_command('play_and_get_digits', args)
+        self.call_command('say', args)
         event = async_response.get(block=True, timeout=response_timeout)
         return event
 
