@@ -346,6 +346,27 @@ class OutboundSession(ESLProtocol):
         digit = event.headers.get('variable_%s' % variable)
         return digit
 
+    def say(self, module_name='en', lang=None, say_type='NUMBER',
+            say_method='pronounced', gender='FEMININE', text=None, block=True,
+            response_timeout=30):
+        if lang:
+            module_name += ':%s' % lang
+
+        args = "%s %s %s %s %s" % (module_name, say_type, say_method, gender, text)
+        if not block:
+            self.call_command('play_and_get_digits', args)
+            return
+
+        async_response = gevent.event.AsyncResult()
+        expected_event = "CHANNEL_EXECUTE_COMPLETE"
+        expected_variable = "current_application"
+        expected_variable_value = "say"
+        self.register_expected_event(expected_event, expected_variable,
+                                     expected_variable_value, async_response)
+        self.call_command('play_and_get_digits', args)
+        event = async_response.get(block=True, timeout=response_timeout)
+        return event
+
     def register_expected_event(self, expected_event, expected_variable,
                                 expected_value, async_response):
         if expected_event not in self.expected_events:
