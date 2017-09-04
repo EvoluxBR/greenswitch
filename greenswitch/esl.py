@@ -13,6 +13,10 @@ class NotConnectedError(Exception):
     pass
 
 
+class OutboundSessionHasGoneAway(Exception):
+    pass
+
+
 class ESLEvent(object):
     def __init__(self, data):
         self.parse_data(data)
@@ -45,6 +49,7 @@ class ESLProtocol(object):
         self.event_handlers = {}
         self._esl_event_queue = Queue()
         self._process_esl_event_queue = True
+        self._lingering = False
 
     def start_event_handlers(self):
         self._receive_events_greenlet = gevent.spawn(self.receive_events)
@@ -118,7 +123,16 @@ class ESLProtocol(object):
             async_response = self._commands_sent.pop(0)
             async_response.set(event)
         elif event.headers['Content-Type'] == 'text/disconnect-notice':
-            self.connected = False
+            if event.headers.get('Content-Disposition') == 'linger':
+                logging.debug('Linger activated')
+                self._lingering = True
+            else:
+                self.connected = False
+            # disconnect-notice is now a propagated event both for inbound
+            # and outbound socket modes.
+            # This is useful for outbound mode to notify all remaining
+            # waiting commands to stop blocking and send a NotConnectedError
+            self._esl_event_queue.put(event)
         elif event.headers['Content-Type'] == 'text/rude-rejection':
             self.connected = False
             length = int(event.headers['Content-Length'])
@@ -249,10 +263,7 @@ class OutboundSession(ESLProtocol):
         return self.session_data.get('variable_call_uuid')
 
     def on_hangup(self, event):
-        # FIXME(italo): call still up waiting to the server to close the
-        # connection, not sure why.
-        logging.info('Caller hangup the call, socket closing')
-        self.stop()
+        logging.info('Caller %s has gone away.' % event.headers.get('Caller-Caller-ID-Number'))
 
     def on_event(self, event):
         # FIXME(italo): Decide if we really need a list of expected events
@@ -279,6 +290,12 @@ class OutboundSession(ESLProtocol):
                 execute-app-name: answer\n\n
 
         """
+        # We're not allowed to send more commands.
+        # lingering True means we already received a hangup from the caller
+        # and any commands sent at this time to the session will fail
+        if self._lingering:
+            raise OutboundSessionHasGoneAway()
+
         command = "sendmsg\n" \
                   "call-command: execute\n" \
                   "execute-app-name: %s" % app_name
@@ -379,6 +396,15 @@ class OutboundSession(ESLProtocol):
         self.call_command('hangup', cause)
 
     def uuid_break(self):
+        # TODO(italo): Properly detect when send() method should fail or not.
+        # Not sure if this is the best way to avoid sending
+        # session related commands, but for now it's working.
+        # Another idea is to create a property called _socket_mode where the
+        # values can be inbound or outbound and when running in outbound
+        # mode we can make sure we'll only send a few permitted commands when
+        # lingering is activated.
+        if self._lingering:
+            raise OutboundSessionHasGoneAway
         self.send('api uuid_break %s' % self.uuid)
 
 
