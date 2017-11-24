@@ -430,11 +430,10 @@ class OutboundESLServer(object):
 
         while True:
             if self.connection_pool.full():
-                logging.info('Have no available slots to allocate this client connection pool reached %s' %
-                             self.max_connections)
+                logging.info('Rejecting call, server is at full capacity, current connection count is %s/%s' %
+                             (self.max_connections - self.connection_pool.free_count(), self.max_connections))
                 gevent.sleep(0.1)
                 continue
-            logging.debug('%s slots remaining' % self.connection_pool.free_count())
             sock, client_address = self.server.accept()
             session = OutboundSession(client_address, sock)
             app = self.application(session)
