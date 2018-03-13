@@ -416,6 +416,7 @@ class OutboundESLServer(object):
         if not application:
             raise ValueError('You need an Application to control your calls.')
         self.application = application
+        self._running = False
         logging.info('Starting OutboundESLServer at %s:%s' %
                      (self.bind_address, self.bind_port))
 
@@ -424,10 +425,14 @@ class OutboundESLServer(object):
         self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server.bind((self.bind_address, self.bind_port))
         self.server.listen(100)
+        self._running = True
 
-        while True:
+        while self._running:
             sock, client_address = self.server.accept()
             session = OutboundSession(client_address, sock)
             app = self.application(session)
             gevent.spawn(app.run)
+
+    def stop(self):
+        self._running = False
 
