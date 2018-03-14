@@ -73,5 +73,6 @@ class MyApplication(object):
 
 server = greenswitch.OutboundESLServer(bind_address='0.0.0.0',
                                        bind_port=5000,
-                                       application=MyApplication)
+                                       application=MyApplication,
+                                       max_connections=5)
 server.listen()

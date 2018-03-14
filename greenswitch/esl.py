@@ -3,6 +3,7 @@ import gevent
 import sys
 from gevent.queue import Queue
 import gevent.socket as socket
+from gevent.pool import Pool as GeventPool
 from gevent.event import Event
 import logging
 import pprint
@@ -410,9 +411,11 @@ class OutboundSession(ESLProtocol):
 
 class OutboundESLServer(object):
     def __init__(self, bind_address='127.0.0.1', bind_port=8000,
-                 application=None):
+                 application=None, max_connections=100):
         self.bind_address = bind_address
         self.bind_port = bind_port
+        self.max_connections = connection_limit
+        self.connection_pool = GeventPool(max_connections)
         if not application:
             raise ValueError('You need an Application to control your calls.')
         self.application = application
@@ -428,10 +431,17 @@ class OutboundESLServer(object):
         self._running = True
 
         while self._running:
+            if self.connection_pool.full():
+                logging.info('Rejecting call, server is at full capacity, current connection count is %s/%s' %
+                             (self.max_connections - self.connection_pool.free_count(), self.max_connections))
+                gevent.sleep(0.1)
+                continue
+
             sock, client_address = self.server.accept()
             session = OutboundSession(client_address, sock)
             app = self.application(session)
-            gevent.spawn(app.run)
+            handler = gevent.spawn(app.run)
+            self.connection_pool.add(handler)
 
     def stop(self):
         self._running = False
