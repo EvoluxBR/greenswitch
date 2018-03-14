@@ -419,6 +419,7 @@ class OutboundESLServer(object):
         if not application:
             raise ValueError('You need an Application to control your calls.')
         self.application = application
+        self._running = False
         logging.info('Starting OutboundESLServer at %s:%s' %
                      (self.bind_address, self.bind_port))
 
@@ -427,16 +428,21 @@ class OutboundESLServer(object):
         self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server.bind((self.bind_address, self.bind_port))
         self.server.listen(100)
+        self._running = True
 
-        while True:
+        while self._running:
             if self.connection_pool.full():
                 logging.info('Rejecting call, server is at full capacity, current connection count is %s/%s' %
                              (self.max_connections - self.connection_pool.free_count(), self.max_connections))
                 gevent.sleep(0.1)
                 continue
+
             sock, client_address = self.server.accept()
             session = OutboundSession(client_address, sock)
             app = self.application(session)
             handler = gevent.spawn(app.run)
             self.connection_pool.add(handler)
+
+    def stop(self):
+        self._running = False
 

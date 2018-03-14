@@ -7,6 +7,19 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 
+"""
+Add a extension on your dialplan to bound the outbound socket on FS channel
+as example below
+
+<extension name="out socket">
+    <condition>
+        <action application="socket" data="<outbound socket server host>:<outbound socket server port> sync full"/>
+    </condition>
+</extension>
+
+Or see the complete doc on https://freeswitch.org/confluence/display/FREESWITCH/mod_event_socket
+"""
+
 class MyApplication(object):
     def __init__(self, session):
         self.session = session
