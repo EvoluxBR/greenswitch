@@ -3,7 +3,6 @@ import gevent
 import sys
 from gevent.queue import Queue
 import gevent.socket as socket
-from gevent.pool import Pool as GeventPool
 from gevent.event import Event
 import logging
 import pprint
@@ -263,8 +262,12 @@ class OutboundSession(ESLProtocol):
     def call_uuid(self):
         return self.session_data.get('variable_call_uuid')
 
+    @property
+    def caller_id_number(self):
+        return self.session_data.get('Caller-Caller-ID-Number')
+
     def on_hangup(self, event):
-        logging.info('Caller %s has gone away.' % event.headers.get('Caller-Caller-ID-Number'))
+        logging.info('Caller %s has gone away.' % self.caller_id_number)
 
     def on_event(self, event):
         # FIXME(italo): Decide if we really need a list of expected events
@@ -414,8 +417,8 @@ class OutboundESLServer(object):
                  application=None, max_connections=100):
         self.bind_address = bind_address
         self.bind_port = bind_port
-        self.max_connections = connection_limit
-        self.connection_pool = GeventPool(max_connections)
+        self.max_connections = max_connections
+        self.connection_count = 0
         if not application:
             raise ValueError('You need an Application to control your calls.')
         self.application = application
@@ -431,17 +434,26 @@ class OutboundESLServer(object):
         self._running = True
 
         while self._running:
-            if self.connection_pool.full():
-                logging.info('Rejecting call, server is at full capacity, current connection count is %s/%s' %
-                             (self.max_connections - self.connection_pool.free_count(), self.max_connections))
-                gevent.sleep(0.1)
-                continue
-
             sock, client_address = self.server.accept()
             session = OutboundSession(client_address, sock)
+            if self.connection_count >= self.max_connections:
+                logging.info('Rejecting call, server is at full capacity, current connection count is %s/%s' %
+                             (self.connection_count, self.max_connections))
+                gevent.sleep(0.1)
+                session.stop()
+                continue
+
             app = self.application(session)
             handler = gevent.spawn(app.run)
-            self.connection_pool.add(handler)
+            handler.session = session
+            handler.link(self.handle_call_finish)
+            self.connection_count += 1
+            logging.debug('Connection count %d' % self.connection_count)
+
+    def handle_call_finish(self, handler):
+        logging.info('Call from %s ended' % handler.session.caller_id_number)
+        self.connection_count -= 1
+        logging.debug('Connection count %d' % self.connection_count)
 
     def stop(self):
         self._running = False
