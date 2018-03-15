@@ -1,9 +1,12 @@
-# Gevent imports
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+
 import gevent
-import sys
 from gevent.queue import Queue
 import gevent.socket as socket
 from gevent.event import Event
+
 import logging
 import pprint
 from six.moves.urllib.parse import unquote
@@ -19,10 +22,10 @@ class OutboundSessionHasGoneAway(Exception):
 
 class ESLEvent(object):
     def __init__(self, data):
+        self.headers = {}
         self.parse_data(data)
 
     def parse_data(self, data):
-        headers = {}
         data = unquote(data)
         data = data.strip().splitlines()
         last_key = None
@@ -34,8 +37,7 @@ class ESLEvent(object):
             else:
                 key = last_key
                 value += '\n' + line
-            headers[key.strip()] = value.strip()
-        self.headers = headers
+            self.headers[key.strip()] = value.strip()
 
 
 class ESLProtocol(object):
@@ -50,6 +52,7 @@ class ESLProtocol(object):
         self._esl_event_queue = Queue()
         self._process_esl_event_queue = True
         self._lingering = False
+        self.connected = False
 
     def start_event_handlers(self):
         self._receive_events_greenlet = gevent.spawn(self.receive_events)
@@ -198,7 +201,6 @@ class ESLProtocol(object):
         self.sock.send(raw_msg)
         response = async_response.get()
         return response
-
 
     def stop(self):
         if self.connected:
