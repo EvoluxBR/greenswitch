@@ -459,4 +459,5 @@ class OutboundESLServer(object):
 
     def stop(self):
         self._running = False
+        self.server.close()
 
