@@ -422,7 +422,6 @@ class OutboundESLServer(object):
         self.bind_address = bind_address
         self.bind_port = bind_port
         self.max_connections = max_connections
-        self.connection_count = 0
         if not application:
             raise ValueError('You need an Application to control your calls.')
         self.application = application
@@ -442,7 +441,6 @@ class OutboundESLServer(object):
         self.server.serve_forever()
 
     def stop(self):
-        logging.info('Stopping OutboundESLServer at %s:%s' %
-                     (self.bind_address, self.bind_port))
+        logging.info('Stopping OutboundESLServer')
         self.server.stop()
 
