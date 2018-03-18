@@ -6,6 +6,8 @@ import gevent
 from gevent.queue import Queue
 import gevent.socket as socket
 from gevent.event import Event
+from gevent.server import StreamServer
+from gevent.pool import Pool
 
 import logging
 import pprint
@@ -424,40 +426,23 @@ class OutboundESLServer(object):
         if not application:
             raise ValueError('You need an Application to control your calls.')
         self.application = application
-        self._running = False
-        logging.info('Starting OutboundESLServer at %s:%s' %
-                     (self.bind_address, self.bind_port))
+
+    def _handle(self, socket, address):
+        session = OutboundSession(address, socket)
+        self.application(session).run()
+        logging.info('Call from %s ended' % session.caller_id_number)
 
     def listen(self):
-        self.server = socket.socket()
-        self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.server.bind((self.bind_address, self.bind_port))
-        self.server.listen(100)
-        self._running = True
-
-        while self._running:
-            sock, client_address = self.server.accept()
-            session = OutboundSession(client_address, sock)
-            if self.connection_count >= self.max_connections:
-                logging.info('Rejecting call, server is at full capacity, current connection count is %s/%s' %
-                             (self.connection_count, self.max_connections))
-                gevent.sleep(0.1)
-                session.stop()
-                continue
-
-            app = self.application(session)
-            handler = gevent.spawn(app.run)
-            handler.session = session
-            handler.link(self.handle_call_finish)
-            self.connection_count += 1
-            logging.debug('Connection count %d' % self.connection_count)
-
-    def handle_call_finish(self, handler):
-        logging.info('Call from %s ended' % handler.session.caller_id_number)
-        self.connection_count -= 1
-        logging.debug('Connection count %d' % self.connection_count)
+        logging.info('Starting OutboundESLServer at %s:%s' %
+                     (self.bind_address, self.bind_port))
+        pool = Pool(self.max_connections)
+        self.server = StreamServer((self.bind_address, self.bind_port),
+                                   self._handle,
+                                   spawn=pool)
+        self.server.serve_forever()
 
     def stop(self):
-        self._running = False
-        self.server.close()
+        logging.info('Stopping OutboundESLServer at %s:%s' %
+                     (self.bind_address, self.bind_port))
+        self.server.stop()
 
