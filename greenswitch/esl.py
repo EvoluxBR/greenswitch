@@ -227,7 +227,10 @@ class InboundESL(ESLProtocol):
     def connect(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.settimeout(self.timeout)
-        self.sock.connect((self.host, self.port))
+        try:
+            self.sock.connect((self.host, self.port))
+        except socket.timeout:
+            raise NotConnectedError('Connection timed out after %s seconds'%(self.timeout))
         self.connected = True
         self.sock.settimeout(None)
         self.sock_file = self.sock.makefile()
