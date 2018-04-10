@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-
-import gevent
-from gevent.queue import Queue
-import gevent.socket as socket
-from gevent.event import Event
-
+import errno
 import logging
 import pprint
+
+import gevent
+import gevent.socket as socket
+from gevent.event import Event
+from gevent.queue import Queue
 from six.moves.urllib.parse import unquote
 
 
@@ -427,6 +427,7 @@ class OutboundESLServer(object):
         if not application:
             raise ValueError('You need an Application to control your calls.')
         self.application = application
+        self._greenlets = set()
         self._running = False
         logging.info('Starting OutboundESLServer at %s:%s' %
                      (self.bind_address, self.bind_port))
@@ -435,11 +436,20 @@ class OutboundESLServer(object):
         self.server = socket.socket()
         self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server.bind((self.bind_address, self.bind_port))
+        self.server.setblocking(0)
         self.server.listen(100)
         self._running = True
 
         while self._running:
-            sock, client_address = self.server.accept()
+            try:
+                sock, client_address = self.server.accept()
+            except socket.error as error:
+                if error.args[0] in (errno.EWOULDBLOCK, errno.EAGAIN):
+                    # no data available
+                    gevent.sleep(0.1)
+                    continue
+                raise
+
             session = OutboundSession(client_address, sock)
             if self.connection_count >= self.max_connections:
                 logging.info('Rejecting call, server is at full capacity, current connection count is %s/%s' %
@@ -450,13 +460,24 @@ class OutboundESLServer(object):
 
             app = self.application(session)
             handler = gevent.spawn(app.run)
+            self._greenlets.add(handler)
             handler.session = session
             handler.link(self.handle_call_finish)
             self.connection_count += 1
             logging.debug('Connection count %d' % self.connection_count)
 
+        logging.info('Closing socket connection...')
+        self.server.close()
+
+        logging.info('Waiting for calls to be ended. Currently, there are %s active calls' % self.connection_count)
+        gevent.joinall(self._greenlets)
+        self._greenlets.clear()
+
+        logging.info('OutboundESLServer stopped')
+
     def handle_call_finish(self, handler):
         logging.info('Call from %s ended' % handler.session.caller_id_number)
+        self._greenlets.remove(handler)
         self.connection_count -= 1
         logging.debug('Connection count %d' % self.connection_count)
 
