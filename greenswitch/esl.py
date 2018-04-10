@@ -204,15 +204,17 @@ class ESLProtocol(object):
 
     def stop(self):
         if self.connected:
-            self.send('exit')
+            try:
+                self.send('exit')
+            except NotConnectedError:
+                pass
         self._run = False
         logging.info("Waiting for receive greenlet exit")
         self._receive_events_greenlet.join()
         logging.info("Waiting for event processing greenlet exit")
         self._process_events_greenlet.join()
-        if self.connected:
-            self.sock.close()
-            self.sock_file.close()
+        self.sock.close()
+        self.sock_file.close()
 
 
 class InboundESL(ESLProtocol):
@@ -480,6 +482,7 @@ class OutboundESLServer(object):
         self._greenlets.remove(handler)
         self.connection_count -= 1
         logging.debug('Connection count %d' % self.connection_count)
+        handler.session.stop()
 
     def stop(self):
         self._running = False
