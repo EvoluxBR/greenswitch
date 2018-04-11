@@ -206,7 +206,7 @@ class ESLProtocol(object):
         if self.connected:
             try:
                 self.send('exit')
-            except NotConnectedError:
+            except (NotConnectedError, socket.error):
                 pass
         self._run = False
         logging.info("Waiting for receive greenlet exit")
