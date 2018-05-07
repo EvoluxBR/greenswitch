@@ -460,13 +460,7 @@ class OutboundESLServer(object):
                 session.stop()
                 continue
 
-            app = self.application(session)
-            handler = gevent.spawn(app.run)
-            self._greenlets.add(handler)
-            handler.session = session
-            handler.link(self.handle_call_finish)
-            self.connection_count += 1
-            logging.debug('Connection count %d' % self.connection_count)
+            self.handle_call(session)
 
         logging.info('Closing socket connection...')
         self.server.close()
@@ -476,6 +470,15 @@ class OutboundESLServer(object):
         self._greenlets.clear()
 
         logging.info('OutboundESLServer stopped')
+
+    def handle_call(self, session):
+        app = self.application(session)
+        handler = gevent.spawn(app.run)
+        self._greenlets.add(handler)
+        handler.session = session
+        handler.link(self.handle_call_finish)
+        self.connection_count += 1
+        logging.debug('Connection count %d' % self.connection_count)
 
     def handle_call_finish(self, handler):
         logging.info('Call from %s ended' % handler.session.caller_id_number)
