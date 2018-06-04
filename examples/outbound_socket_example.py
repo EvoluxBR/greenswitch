@@ -38,6 +38,7 @@ class MyApplication(object):
         """
         Main function that is called when a call comes in.
         """
+        self.session.connect()
         self.session.myevents()
         print("myevents")
         self.session.linger()
