@@ -17,4 +17,7 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
-
+.idea/*
+.pytest_cache/*
+.tags*
+.vscode/
