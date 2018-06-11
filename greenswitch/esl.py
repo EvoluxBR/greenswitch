@@ -4,6 +4,7 @@
 import errno
 import logging
 import pprint
+import sys
 
 import gevent
 import gevent.socket as socket
@@ -425,6 +426,9 @@ class OutboundESLServer(object):
         self.bind_address = bind_address
         if not isinstance(bind_port, (list, tuple)):
             bind_port = [bind_port]
+        if not bind_port:
+            raise ValueError('bind_port must be a string or list with port numbers')
+
         self.bind_port = bind_port
         self.max_connections = max_connections
         self.connection_count = 0
@@ -450,7 +454,9 @@ class OutboundESLServer(object):
             except socket.error:
                 logging.info('Failed to bind to port %s, trying next in range...' % port)
                 continue
-
+        if not self.bound_port:
+            loggind.error('Could not bind server, no ports available.')
+            sys.exit()
         logging.info('Successfully bound to port %s' % self.bound_port)
         self.server.setblocking(0)
         self.server.listen(100)
