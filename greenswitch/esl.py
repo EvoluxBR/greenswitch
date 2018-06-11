@@ -455,7 +455,7 @@ class OutboundESLServer(object):
                 logging.info('Failed to bind to port %s, trying next in range...' % port)
                 continue
         if not self.bound_port:
-            loggind.error('Could not bind server, no ports available.')
+            logging.error('Could not bind server, no ports available.')
             sys.exit()
         logging.info('Successfully bound to port %s' % self.bound_port)
         self.server.setblocking(0)
