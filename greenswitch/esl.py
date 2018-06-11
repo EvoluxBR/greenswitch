@@ -423,6 +423,8 @@ class OutboundESLServer(object):
     def __init__(self, bind_address='127.0.0.1', bind_port=8000,
                  application=None, max_connections=100):
         self.bind_address = bind_address
+        if not isinstance(bind_port, (list, tuple)):
+            bind_port = [bind_port]
         self.bind_port = bind_port
         self.max_connections = max_connections
         self.connection_count = 0
@@ -433,11 +435,23 @@ class OutboundESLServer(object):
         self._running = False
         logging.info('Starting OutboundESLServer at %s:%s' %
                      (self.bind_address, self.bind_port))
+        self.bound_port = None
 
     def listen(self):
         self.server = socket.socket()
         self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.server.bind((self.bind_address, self.bind_port))
+
+        for port in self.bind_port:
+            try:
+                self.server.bind((self.bind_address, port))
+                bound = True
+                self.bound_port = port
+                break
+            except socket.error:
+                logging.info('Failed to bind to port %s, trying next in range...' % port)
+                continue
+
+        logging.info('Successfully bound to port %s' % self.bound_port)
         self.server.setblocking(0)
         self.server.listen(100)
         self._running = True
