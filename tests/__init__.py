@@ -8,7 +8,7 @@ import gevent
 import os
 import unittest
 
-import fakeeslserver
+from . import fakeeslserver
 from greenswitch import esl
 
 
