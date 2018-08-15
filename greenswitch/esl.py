@@ -133,6 +133,11 @@ class ESLProtocol(object):
                 self._lingering = True
             else:
                 self.connected = False
+                if self._commands_sent:
+                    async_response = self._commands_sent.pop(0)
+                    event.data = event.headers.get('Content-Disposition')
+                    async_response.set(event)
+
             # disconnect-notice is now a propagated event both for inbound
             # and outbound socket modes.
             # This is useful for outbound mode to notify all remaining
@@ -476,7 +481,6 @@ class OutboundESLServer(object):
             if self.connection_count >= self.max_connections:
                 logging.info('Rejecting call, server is at full capacity, current connection count is %s/%s' %
                              (self.connection_count, self.max_connections))
-                gevent.sleep(0.1)
                 session.stop()
                 continue
 
