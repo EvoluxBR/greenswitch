@@ -32,13 +32,13 @@ class MyApplication(object):
         except:
             print('ERRORRR')
             logging.exception('Exception raised when handling call')
-            self.session.stop()
+            self.session.stop(timeout=5)
 
     def safe_run(self):
         """
         Main function that is called when a call comes in.
         """
-        self.session.connect()
+        self.session.connect(timeout=5)
         self.session.myevents()
         print("myevents")
         self.session.linger()

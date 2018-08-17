@@ -194,29 +194,33 @@ class ESLProtocol(object):
             if hasattr(self, 'after_handle'):
                 self._safe_exec_handler(self.after_handle, event)
 
-    def send(self, data):
+    def send(self, data, timeout=None):
         if not self.connected:
             raise NotConnectedError()
         async_response = gevent.event.AsyncResult()
         self._commands_sent.append(async_response)
         raw_msg = (data + self._EOL*2).encode('utf-8')
         self.sock.send(raw_msg)
-        response = async_response.get()
+        response = async_response.get(timeout=timeout)
         return response
 
-    def stop(self):
-        if self.connected:
-            try:
-                self.send('exit')
-            except (NotConnectedError, socket.error):
-                pass
+    def exit(self, timeout=None):
+        if not self.connected:
+             return
+        try:
+            self.send('exit', timeout=timeout)
+        except (NotConnectedError, socket.error, gevent.Timeout) as error:
+            logging.exception('Failed to send exit command')
+
+    def stop(self, timeout=None):
+        self.exit(timeout)
         self._run = False
+        self.sock.close()
+        self.sock_file.close()
         logging.info("Waiting for receive greenlet exit")
         self._receive_events_greenlet.join()
         logging.info("Waiting for event processing greenlet exit")
         self._process_events_greenlet.join()
-        self.sock.close()
-        self.sock_file.close()
 
 
 class InboundESL(ESLProtocol):
@@ -256,7 +260,8 @@ class OutboundSession(ESLProtocol):
         self.sock = sock
         self.sock_file = self.sock.makefile()
         self.connected = True
-        self.session_data = None
+        self._outbound_connected = False
+        self.session_data = dict()
         self.start_event_handlers()
         self.register_handle('*', self.on_event)
         self.register_handle('CHANNEL_HANGUP', self.on_hangup)
@@ -316,9 +321,17 @@ class OutboundSession(ESLProtocol):
 
         return self.send(command)
 
-    def connect(self):
-        resp = self.send('connect')
+    def connect(self, timeout=None):
+        resp = self.send('connect', timeout=timeout)
+        self._outbound_connected = True
         self.session_data = resp.headers
+
+    def exit(self, timeout=None):
+        if not self._outbound_connected:
+            return
+
+        self._outbound_connected = False
+        super(OutboundSession, self).exit(timeout)
 
     def myevents(self):
         self.send('myevents')
@@ -422,7 +435,8 @@ class OutboundSession(ESLProtocol):
 
 class OutboundESLServer(object):
     def __init__(self, bind_address='127.0.0.1', bind_port=8000,
-                 application=None, max_connections=100):
+                 application=None, max_connections=100,
+                 connect_timeout=5, stop_timeout=5):
         self.bind_address = bind_address
         if not isinstance(bind_port, (list, tuple)):
             bind_port = [bind_port]
@@ -431,6 +445,8 @@ class OutboundESLServer(object):
 
         self.bind_port = bind_port
         self.max_connections = max_connections
+        self.connect_timeout = connect_timeout
+        self.stop_timeout = stop_timeout
         self.connection_count = 0
         if not application:
             raise ValueError('You need an Application to control your calls.')
@@ -477,7 +493,7 @@ class OutboundESLServer(object):
                 logging.info('Rejecting call, server is at full capacity, current connection count is %s/%s' %
                              (self.connection_count, self.max_connections))
                 gevent.sleep(0.1)
-                session.stop()
+                session.stop(self.stop_timeout)
                 continue
 
             self.handle_call(session)
@@ -506,7 +522,7 @@ class OutboundESLServer(object):
         self._greenlets.remove(handler)
         self.connection_count -= 1
         logging.debug('Connection count %d' % self.connection_count)
-        handler.session.stop()
+        handler.session.stop(self.stop_timeout)
 
     def stop(self):
         self._running = False
