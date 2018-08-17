@@ -476,11 +476,14 @@ class OutboundESLServer(object):
             if self.connection_count >= self.max_connections:
                 logging.info('Rejecting call, server is at full capacity, current connection count is %s/%s' %
                              (self.connection_count, self.max_connections))
-                gevent.sleep(0.1)
-                session.stop()
-                continue
-
-            self.handle_call(session)
+                gevent.spawn(self.reject_call, session)
+            else:
+                self.connection_count += 1
+                logging.debug('Connection count %d' % self.connection_count)
+                handler = gevent.spawn(self.handle_call, session)
+                handler.session = session
+                handler.link(self.handle_call_finish)
+                self._greenlets.add(handler)
 
         logging.info('Closing socket connection...')
         self.server.shutdown(socket.SHUT_RD)
@@ -493,20 +496,18 @@ class OutboundESLServer(object):
         logging.info('OutboundESLServer stopped')
 
     def handle_call(self, session):
-        app = self.application(session)
-        handler = gevent.spawn(app.run)
-        self._greenlets.add(handler)
-        handler.session = session
-        handler.link(self.handle_call_finish)
-        self.connection_count += 1
-        logging.debug('Connection count %d' % self.connection_count)
+        session.connect()
+        self.application(session).run()
 
     def handle_call_finish(self, handler):
         logging.info('Call from %s ended' % handler.session.caller_id_number)
         self._greenlets.remove(handler)
+        handler.session.stop()
         self.connection_count -= 1
         logging.debug('Connection count %d' % self.connection_count)
-        handler.session.stop()
+
+    def reject_call(self, session):
+        session.stop()
 
     def stop(self):
         self._running = False
