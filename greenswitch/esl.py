@@ -45,7 +45,7 @@ class ESLProtocol(object):
     def __init__(self):
         self._run = True
         self._EOL = '\n'
-        self._commands_sent = []
+        self._commands_sent = set()
         self._auth_request_event = Event()
         self._receive_events_greenlet = None
         self._process_events_greenlet = None
@@ -118,14 +118,14 @@ class ESLProtocol(object):
         if event.headers['Content-Type'] == 'auth/request':
             self._auth_request_event.set()
         elif event.headers['Content-Type'] == 'command/reply':
-            async_response = self._commands_sent.pop(0)
+            async_response = self._commands_sent.pop()
             event.data = event.headers['Reply-Text']
             async_response.set(event)
         elif event.headers['Content-Type'] == 'api/response':
             length = int(event.headers['Content-Length'])
             data = self._read_socket(self.sock_file, length)
             event.data = data
-            async_response = self._commands_sent.pop(0)
+            async_response = self._commands_sent.pop()
             async_response.set(event)
         elif event.headers['Content-Type'] == 'text/disconnect-notice':
             if event.headers.get('Content-Disposition') == 'linger':
@@ -198,10 +198,15 @@ class ESLProtocol(object):
         if not self.connected:
             raise NotConnectedError()
         async_response = gevent.event.AsyncResult()
-        self._commands_sent.append(async_response)
+        self._commands_sent.add(async_response)
         raw_msg = (data + self._EOL*2).encode('utf-8')
         self.sock.send(raw_msg)
-        response = async_response.get(timeout=timeout)
+        try:
+            response = async_response.get(timeout=timeout)
+        except gevent.Timeout as e:
+            if async_response in self._commands_sent:
+                self._commands_sent.remove(async_response)
+            raise
         return response
 
     def exit(self, timeout=None):
