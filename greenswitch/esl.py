@@ -234,14 +234,16 @@ class InboundESL(ESLProtocol):
         try:
             self.sock.connect((self.host, self.port))
         except socket.timeout:
-            raise NotConnectedError('Connection timed out after %s seconds'%(self.timeout))
+            raise NotConnectedError('Connection timed out after %s seconds'
+                                    % self.timeout)
         self.connected = True
         self.sock.settimeout(None)
         self.sock_file = self.sock.makefile()
         self.start_event_handlers()
         self._auth_request_event.wait()
         if not self.connected:
-            raise NotConnectedError('Server closed connection, check FreeSWITCH config.')
+            raise NotConnectedError('Server closed connection, check '
+                                    'FreeSWITCH config.')
         self.authenticate()
 
     def authenticate(self):
@@ -346,18 +348,23 @@ class OutboundSession(ESLProtocol):
                                      expected_variable_value, async_response)
         self.call_command('playback', path)
         event = async_response.get(block=True)
-        # TODO(italo): Decide what we need to return. Returning whole event right now
+        # TODO(italo): Decide what we need to return.
+        #   Returning whole event right now
         return event
 
     def play_and_get_digits(self, min_digits=None, max_digits=None,
-                            max_attempts=None, timeout=None, terminators=None, prompt_file=None,
-                            error_file=None, variable=None, digits_regex=None,
-                            digit_timeout=None, transfer_on_fail=None,
-                            block=True, response_timeout=30):
-        args = "%s %s %s %s %s %s %s %s %s %s %s" % (min_digits, max_digits, max_attempts,
-                                                  timeout, terminators, prompt_file,
-                                                  error_file, variable, digits_regex,
-                                                  digit_timeout, transfer_on_fail)
+                            max_attempts=None, timeout=None, terminators=None,
+                            prompt_file=None, error_file=None, variable=None,
+                            digits_regex=None, digit_timeout=None,
+                            transfer_on_fail=None, block=True,
+                            response_timeout=30):
+        args = "%s %s %s %s %s %s %s %s %s %s %s" % (min_digits, max_digits,
+                                                     max_attempts, timeout,
+                                                     terminators, prompt_file,
+                                                     error_file, variable,
+                                                     digits_regex,
+                                                     digit_timeout,
+                                                     transfer_on_fail)
         if not block:
             self.call_command('play_and_get_digits', args)
             return
@@ -381,7 +388,8 @@ class OutboundSession(ESLProtocol):
         if lang:
             module_name += ':%s' % lang
 
-        args = "%s %s %s %s %s" % (module_name, say_type, say_method, gender, text)
+        args = "%s %s %s %s %s" % (module_name, say_type, say_method, gender,
+                                   text)
         if not block:
             self.call_command('say', args)
             return
@@ -427,7 +435,8 @@ class OutboundESLServer(object):
         if not isinstance(bind_port, (list, tuple)):
             bind_port = [bind_port]
         if not bind_port:
-            raise ValueError('bind_port must be a string or list with port numbers')
+            raise ValueError('bind_port must be a string or list with port '
+                             'numbers')
 
         self.bind_port = bind_port
         self.max_connections = max_connections
@@ -437,6 +446,7 @@ class OutboundESLServer(object):
         self.application = application
         self._greenlets = set()
         self._running = False
+        self.server = None
         logging.info('Starting OutboundESLServer at %s:%s' %
                      (self.bind_address, self.bind_port))
         self.bound_port = None
@@ -448,11 +458,11 @@ class OutboundESLServer(object):
         for port in self.bind_port:
             try:
                 self.server.bind((self.bind_address, port))
-                bound = True
                 self.bound_port = port
                 break
             except socket.error:
-                logging.info('Failed to bind to port %s, trying next in range...' % port)
+                logging.info('Failed to bind to port %s, '
+                             'trying next in range...' % port)
                 continue
         if not self.bound_port:
             logging.error('Could not bind server, no ports available.')
@@ -473,35 +483,40 @@ class OutboundESLServer(object):
                 raise
 
             session = OutboundSession(client_address, sock)
-            if self.connection_count >= self.max_connections:
-                logging.info('Rejecting call, server is at full capacity, current connection count is %s/%s' %
-                             (self.connection_count, self.max_connections))
-                gevent.sleep(0.1)
-                session.stop()
-                continue
-
-            self.handle_call(session)
+            gevent.spawn(self._accept_call, session)
 
         logging.info('Closing socket connection...')
         self.server.shutdown(socket.SHUT_RD)
         self.server.close()
 
-        logging.info('Waiting for calls to be ended. Currently, there are %s active calls' % self.connection_count)
+        logging.info('Waiting for calls to be ended. Currently, there are '
+                     '%s active calls' % self.connection_count)
         gevent.joinall(self._greenlets)
         self._greenlets.clear()
 
         logging.info('OutboundESLServer stopped')
 
-    def handle_call(self, session):
+    def _accept_call(self, session):
+        if self.connection_count >= self.max_connections:
+            logging.info(
+                'Rejecting call, server is at full capacity, current '
+                'connection count is %s/%s' %
+                (self.connection_count, self.max_connections))
+            session.connect()
+            session.stop()
+
+        self._handle_call(session)
+
+    def _handle_call(self, session):
         app = self.application(session)
         handler = gevent.spawn(app.run)
         self._greenlets.add(handler)
         handler.session = session
-        handler.link(self.handle_call_finish)
+        handler.link(self._handle_call_finish)
         self.connection_count += 1
         logging.debug('Connection count %d' % self.connection_count)
 
-    def handle_call_finish(self, handler):
+    def _handle_call_finish(self, handler):
         logging.info('Call from %s ended' % handler.session.caller_id_number)
         self._greenlets.remove(handler)
         self.connection_count -= 1
