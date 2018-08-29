@@ -263,6 +263,7 @@ class OutboundSession(ESLProtocol):
         self.register_handle('*', self.on_event)
         self.register_handle('CHANNEL_HANGUP', self.on_hangup)
         self.expected_events = {}
+        self._outbound_connected = False
 
     @property
     def uuid(self):
@@ -319,8 +320,12 @@ class OutboundSession(ESLProtocol):
         return self.send(command)
 
     def connect(self):
+        if self._outbound_connected:
+            return self.session_data
+
         resp = self.send('connect')
         self.session_data = resp.headers
+        self._outbound_connected = True
 
     def myevents(self):
         self.send('myevents')
@@ -504,10 +509,12 @@ class OutboundESLServer(object):
                 (self.connection_count, self.max_connections))
             session.connect()
             session.stop()
+            return
 
         self._handle_call(session)
 
     def _handle_call(self, session):
+        session.connect()
         app = self.application(session)
         handler = gevent.spawn(app.run)
         self._greenlets.add(handler)
