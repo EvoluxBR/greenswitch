@@ -175,7 +175,8 @@ class ESLProtocol(object):
                 handlers = self.event_handlers.get(event.headers.get('Event-Subclass'))
             else:
                 handlers = self.event_handlers.get(event.headers.get('Event-Name'))
-
+            if event.headers.get('Content-Type') == 'text/disconnect-notice':
+                handlers = self.event_handlers.get('DISCONNECT')
             if not handlers and event.headers.get('Content-Type') == 'log/data':
                 handlers = self.event_handlers.get('log')
 
@@ -262,6 +263,7 @@ class OutboundSession(ESLProtocol):
         self.start_event_handlers()
         self.register_handle('*', self.on_event)
         self.register_handle('CHANNEL_HANGUP', self.on_hangup)
+        self.register_handle('DISCONNECT', self.on_disconnect)
         self.expected_events = {}
         self._outbound_connected = False
 
@@ -276,6 +278,18 @@ class OutboundSession(ESLProtocol):
     @property
     def caller_id_number(self):
         return self.session_data.get('Caller-Caller-ID-Number')
+
+    def on_disconnect(self, event):
+        if self._lingering:
+            logging.debug('Socket lingering..')
+        elif not self.connected:
+            logging.debug('Socket closed: %s' % event.headers)
+        logging.debug('Raising OutboundSessionHasGoneAway for all pending'
+                      'results')
+        for event_name in self.expected_events:
+            for variable, value, async_result in \
+                    self.expected_events[event_name]:
+                async_result.set_exception(OutboundSessionHasGoneAway())
 
     def on_hangup(self, event):
         logging.info('Caller %s has gone away.' % self.caller_id_number)
