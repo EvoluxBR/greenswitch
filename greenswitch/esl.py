@@ -252,6 +252,13 @@ class InboundESL(ESLProtocol):
         if response.headers['Reply-Text'] != '+OK accepted':
             raise ValueError('Invalid password.')
 
+    def __enter__(self):
+        self.connect()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.send('exit')
+        self.connected = False
 
 class OutboundSession(ESLProtocol):
     def __init__(self, client_address, sock):
