@@ -257,8 +257,7 @@ class InboundESL(ESLProtocol):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.send('exit')
-        self.connected = False
+        self.stop()
 
 class OutboundSession(ESLProtocol):
     def __init__(self, client_address, sock):
