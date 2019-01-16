@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import errno
+import functools
 import logging
 import pprint
 import sys
@@ -251,6 +252,16 @@ class InboundESL(ESLProtocol):
         response = self.send('auth %s' % self.password)
         if response.headers['Reply-Text'] != '+OK accepted':
             raise ValueError('Invalid password.')
+
+    def handle(self, event):
+        def decorator(function):
+            self.register_handle(event, function)
+            @functools.wraps(function)
+            def wrapper(*args, **kwargs):
+                result = function(*args, **kwargs)
+                return result
+            return wrapper
+        return decorator
 
 
 class OutboundSession(ESLProtocol):
