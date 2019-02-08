@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
 import errno
 import logging
 import pprint
 import sys
+try: from collections.abc import Mapping
+except: from collections import Mapping
 
 import gevent
 import gevent.socket as socket
@@ -21,10 +22,38 @@ class OutboundSessionHasGoneAway(Exception):
     pass
 
 
-class ESLEvent(object):
+class ESLEvent(Mapping):
     def __init__(self, data):
         self.headers = {}
         self.parse_data(data)
+
+    def __getitem__(self, key):
+        return self.headers[key]
+
+    def __iter__(self):
+        return iter(self.headers)
+
+    def __len__(self):
+        return len(self.headers)
+
+    def keys(self):
+        return self.headers.keys()
+
+    def items(self):
+        return self.headers.items()
+
+    def values(self):
+        return self.headers.values()
+
+    def get(self, key, value=None):
+        return self.headers.get(key, value)
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.headers == other.headers
+
+        else:
+            return NotImplemented
 
     def parse_data(self, data):
         data = unquote(data)
