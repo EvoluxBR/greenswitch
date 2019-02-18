@@ -29,10 +29,6 @@ Inbound Socket Mode
     >>> print r.data
 
 
-Currently only Inbound Socket is implemented, support for outbound socket should
-be done soon.
-
-
 Outbound Socket Mode
 ====================
 
