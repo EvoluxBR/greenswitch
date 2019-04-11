@@ -262,7 +262,13 @@ class InboundESL(ESLProtocol):
                 return result
             return wrapper
         return decorator
+            
+    def __enter__(self):
+        self.connect()
+        return self
 
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.stop()
 
 class OutboundSession(ESLProtocol):
     def __init__(self, client_address, sock):
