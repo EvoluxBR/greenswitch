@@ -297,6 +297,9 @@ class OutboundSession(ESLProtocol):
                     self.expected_events[event_name]:
                 async_result.set_exception(OutboundSessionHasGoneAway())
 
+        for cmd in self._commands_sent:
+            cmd.set_exception(OutboundSessionHasGoneAway())
+
     def on_hangup(self, event):
         logging.info('Caller %s has gone away.' % self.caller_id_number)
 
