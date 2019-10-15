@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from unittest import mock
 from textwrap import dedent
 import types
 
@@ -361,3 +362,288 @@ class TestInboundESL(TestInboundESLBase):
         """Should not break if receive an event without handler."""
         self.send_fake_event_plain('Event-Name: EVENT_UNKNOWN')
         self.assertTrue(self.esl.connected)
+
+
+class ESLProtocolTest(TestInboundESLBase):
+    def test_receive_events_io_error_handling(self):
+        """
+        `receive_events` will close the socket and stop running in
+        case of error
+        """
+        protocol = esl.ESLProtocol()
+        protocol.sock = mock.Mock()
+        protocol.sock_file = mock.Mock()
+        protocol.sock_file.readline.side_effect = Exception()
+
+        protocol.receive_events()
+        self.assertTrue(protocol.sock.close.called)
+        self.assertFalse(protocol.connected)
+
+    def test_receive_events_without_data_but_connected(self):
+        """
+        `receive_events` is defensive programmed to fix
+        bad `connected` property flag if no data is read,
+        but without trying to really closing the socket.
+        """
+        protocol = esl.ESLProtocol()
+        protocol.connected = True
+        protocol.sock = mock.Mock()
+        protocol.sock_file = mock.Mock()
+        protocol.sock_file.readline.return_value = None
+
+        protocol.receive_events()
+        self.assertFalse(protocol.sock.close.called)
+        self.assertFalse(protocol.connected)
+
+    def test_handle_event_with_packet_loss(self):
+        """
+        `handle_event` detects if the data read by
+        socket doesn't have enough length that its
+        metadata "Content-Length" header says, and
+        concats more data on event's.
+        """
+        protocol = esl.ESLProtocol()
+        protocol._commands_sent.append(mock.Mock())
+        protocol.sock = mock.Mock()
+        protocol.sock_file = mock.Mock()
+        protocol.sock_file.read.return_value = '123456789'
+        event = mock.Mock()
+        event.headers = {
+            'Content-Type': 'api/response',
+            'Content-Length': '10',
+        }
+
+        protocol.handle_event(event)
+        self.assertEqual(event.data, '123456789123456789')
+
+    def test_handle_event_disconnect_with_linger(self):
+        """
+        `handle_event` handles a "text/disconnect-notice" content
+        with "Content-Disposition" header as "linger" by not
+        disconnecting the socket.
+        """
+        protocol = esl.ESLProtocol()
+        protocol.connected = True
+        protocol._commands_sent.append(mock.Mock())
+        protocol.sock = mock.Mock()
+        event = mock.Mock()
+        event.headers = {
+            'Content-Type': 'text/disconnect-notice',
+            'Content-Disposition': 'linger',
+        }
+
+        protocol.handle_event(event)
+        self.assertTrue(protocol.connected)
+        self.assertFalse(protocol.sock.close.called)
+
+    def test_handle_event_rude_rejection(self):
+        """
+        `handle_event` handles a "text/rude-rejection" content
+        by disabling `connected` flag but still reading it.
+        """
+        protocol = esl.ESLProtocol()
+        protocol.connected = True
+        protocol.sock_file = mock.Mock()
+        protocol.sock_file.read.return_value = '123'
+        event = mock.Mock()
+        event.headers = {
+            'Content-Type': 'text/rude-rejection',
+            'Content-Length': '3',
+        }
+
+        protocol.handle_event(event)
+        self.assertFalse(protocol.connected)
+        self.assertTrue(protocol.sock_file.read.called)
+
+    def test_private_safe_exec_handler(self):
+        """
+        `_safe_exec_handler` is a private (and almost static) method
+        to apply a function to an event without letting any exception
+        reach the outter scope.
+        """
+        protocol = esl.ESLProtocol()
+        bad_handler = mock.Mock(side_effect=Exception())
+        bad_handler.__name__ = 'named-handler'
+        event = mock.Mock()
+
+        protocol._safe_exec_handler(bad_handler, event)
+        self.assertTrue(bad_handler.called)
+        bad_handler.assert_called_with(event)
+
+    @mock.patch('greenswitch.esl.ESLProtocol.run', new_callable=mock.PropertyMock)
+    @mock.patch('gevent.sleep')
+    def test_process_events_quick_sleep_for_falsy_events_queue(self,
+                                                               gevent_sleep,
+                                                               private_run_property):
+        """
+        `process_events` sleeps for 1s if ESL queue has falsy value.
+        """
+        private_run_property.side_effect = [True, False]
+
+        protocol = esl.ESLProtocol()
+        protocol._process_esl_event_queue = False
+
+        protocol.process_events()
+        self.assertTrue(gevent_sleep.called)
+        gevent_sleep.assert_called_with(1)
+
+    @mock.patch('greenswitch.esl.ESLProtocol.run', new_callable=mock.PropertyMock)
+    def test_process_events_with_custom_name(self, private_run_property):
+        """
+        `process_events` will accept an event with "Event-Name" header as "CUSTOM"
+        in its headers by calling the handlers indexed by its "Event-Subclass".
+        """
+        private_run_property.side_effect = [True, False]
+
+        protocol = esl.ESLProtocol()
+        handlers = [mock.Mock(), mock.Mock()]
+        protocol.event_handlers['custom-subclass'] = handlers
+
+        event = mock.Mock()
+        event.headers = {
+            'Event-Name': 'CUSTOM',
+            'Event-Subclass': 'custom-subclass',
+        }
+        protocol._esl_event_queue.put(event)
+
+        protocol.process_events()
+        self.assertTrue(handlers[0].called)
+        handlers[0].assert_called_with(event)
+        self.assertTrue(handlers[1].called)
+        handlers[1].assert_called_with(event)
+
+    @mock.patch('greenswitch.esl.ESLProtocol.run', new_callable=mock.PropertyMock)
+    def test_process_events_with_log_type(self, private_run_property):
+        """
+        `process_events` will accept an event with "log/data" type
+        and pass it to its handlers.
+        """
+        private_run_property.side_effect = [True, False]
+
+        protocol = esl.ESLProtocol()
+        handlers = [mock.Mock(), mock.Mock()]
+        protocol.event_handlers['log'] = handlers
+
+        event = mock.Mock()
+        event.headers = {
+            'Content-Type': 'log/data',
+        }
+        protocol._esl_event_queue.put(event)
+
+        protocol.process_events()
+        self.assertTrue(handlers[0].called)
+        handlers[0].assert_called_with(event)
+        self.assertTrue(handlers[1].called)
+        handlers[1].assert_called_with(event)
+
+    @mock.patch('greenswitch.esl.ESLProtocol.run', new_callable=mock.PropertyMock)
+    def test_process_events_with_no_handlers_will_rely_on_generic(self, private_run_property):
+        """
+        `process_events` will rely only on handlers for "*" if
+        a given event has no handlers.
+        """
+        private_run_property.side_effect = [True, False]
+
+        protocol = esl.ESLProtocol()
+        fallback_handlers = [mock.Mock(), mock.Mock()]
+        protocol.event_handlers['*'] = fallback_handlers
+        other_handlers = [mock.Mock(), mock.Mock()]
+        protocol.event_handlers['other-handlers'] = other_handlers
+
+        event = mock.Mock()
+        event.headers = {
+            'Event-Name': 'CUSTOM',
+            'Event-Subclass': 'custom-subclass-without-handlers',
+        }
+        protocol._esl_event_queue.put(event)
+
+        protocol.process_events()
+        self.assertTrue(fallback_handlers[0].called)
+        fallback_handlers[0].assert_called_with(event)
+        self.assertTrue(fallback_handlers[1].called)
+        fallback_handlers[1].assert_called_with(event)
+        self.assertFalse(other_handlers[0].called)
+        self.assertFalse(other_handlers[1].called)
+
+    @mock.patch('greenswitch.esl.ESLProtocol.run', new_callable=mock.PropertyMock)
+    def test_process_events_with_pre_handler(self, private_run_property):
+        """
+        `process_events` will call for `before_handle` property
+        if it was implemented on such protocol instance, but the
+        event will also be passed to default handlers.
+        """
+        private_run_property.side_effect = [True, False]
+
+        protocol = esl.ESLProtocol()
+        protocol.before_handle = mock.Mock()
+        some_handlers = [mock.Mock(), mock.Mock()]
+        protocol.event_handlers['some-handlers'] = some_handlers
+
+        event = mock.Mock()
+        event.headers = {
+            'Event-Name': 'CUSTOM',
+            'Event-Subclass': 'some-handlers',
+        }
+        protocol._esl_event_queue.put(event)
+
+        protocol.process_events()
+        self.assertTrue(protocol.before_handle.called)
+        protocol.before_handle.assert_called_with(event)
+        self.assertTrue(some_handlers[0].called)
+        some_handlers[0].assert_called_with(event)
+        self.assertTrue(some_handlers[1].called)
+        some_handlers[1].assert_called_with(event)
+
+    @mock.patch('greenswitch.esl.ESLProtocol.run', new_callable=mock.PropertyMock)
+    def test_process_events_with_post_handler(self, private_run_property):
+        """
+        `process_events` will call for `after_handle` property
+        if it was implemented on such protocol instance, but the
+        event will also be passed to default handlers.
+        """
+        private_run_property.side_effect = [True, False]
+
+        protocol = esl.ESLProtocol()
+        protocol.after_handle = mock.Mock()
+        some_handlers = [mock.Mock(), mock.Mock()]
+        protocol.event_handlers['some-handlers'] = some_handlers
+
+        event = mock.Mock()
+        event.headers = {
+            'Event-Name': 'CUSTOM',
+            'Event-Subclass': 'some-handlers',
+        }
+        protocol._esl_event_queue.put(event)
+
+        protocol.process_events()
+        self.assertTrue(protocol.after_handle.called)
+        protocol.after_handle.assert_called_with(event)
+        self.assertTrue(some_handlers[0].called)
+        some_handlers[0].assert_called_with(event)
+        self.assertTrue(some_handlers[1].called)
+        some_handlers[1].assert_called_with(event)
+
+    def test_stop(self):
+        """
+        `stop` must, if connected, try to send "exit"
+        but ignore any exception that `send` method may
+        raise for `NotConnectedError` and keep
+        process/receiving until closing the socket
+        and its file.
+        """
+        protocol = esl.ESLProtocol()
+        protocol.connected = True
+        protocol.send = mock.Mock()
+        protocol.send.side_effect = esl.NotConnectedError()
+        protocol._receive_events_greenlet = mock.Mock()
+        protocol._process_events_greenlet = mock.Mock()
+        protocol.sock = mock.Mock()
+        protocol.sock_file = mock.Mock()
+
+        protocol.stop()
+        self.assertTrue(protocol.send.called)
+        protocol.send.assert_called_with('exit')
+        self.assertTrue(protocol._receive_events_greenlet.join.called)
+        self.assertTrue(protocol._process_events_greenlet.join.called)
+        self.assertTrue(protocol.sock.close.called)
+        self.assertTrue(protocol.sock_file.close.called)
