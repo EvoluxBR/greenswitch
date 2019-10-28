@@ -474,7 +474,7 @@ class ESLProtocolTest(TestInboundESLBase):
         self.assertTrue(bad_handler.called)
         bad_handler.assert_called_with(event)
 
-    @mock.patch('greenswitch.esl.ESLProtocol.run', new_callable=mock.PropertyMock)
+    @mock.patch('greenswitch.esl.ESLProtocol._run', create=True, new_callable=mock.PropertyMock)
     @mock.patch('gevent.sleep')
     def test_process_events_quick_sleep_for_falsy_events_queue(self,
                                                                gevent_sleep,
@@ -482,24 +482,22 @@ class ESLProtocolTest(TestInboundESLBase):
         """
         `process_events` sleeps for 1s if ESL queue has falsy value.
         """
-        private_run_property.side_effect = [True, False]
-
         protocol = esl.ESLProtocol()
+        private_run_property.side_effect = [True, False]
         protocol._process_esl_event_queue = False
 
         protocol.process_events()
         self.assertTrue(gevent_sleep.called)
         gevent_sleep.assert_called_with(1)
 
-    @mock.patch('greenswitch.esl.ESLProtocol.run', new_callable=mock.PropertyMock)
+    @mock.patch('greenswitch.esl.ESLProtocol._run', create=True, new_callable=mock.PropertyMock)
     def test_process_events_with_custom_name(self, private_run_property):
         """
         `process_events` will accept an event with "Event-Name" header as "CUSTOM"
         in its headers by calling the handlers indexed by its "Event-Subclass".
         """
-        private_run_property.side_effect = [True, False]
-
         protocol = esl.ESLProtocol()
+        private_run_property.side_effect = [True, False]
         handlers = [mock.Mock(), mock.Mock()]
         protocol.event_handlers['custom-subclass'] = handlers
 
@@ -516,15 +514,14 @@ class ESLProtocolTest(TestInboundESLBase):
         self.assertTrue(handlers[1].called)
         handlers[1].assert_called_with(event)
 
-    @mock.patch('greenswitch.esl.ESLProtocol.run', new_callable=mock.PropertyMock)
+    @mock.patch('greenswitch.esl.ESLProtocol._run', create=True, new_callable=mock.PropertyMock)
     def test_process_events_with_log_type(self, private_run_property):
         """
         `process_events` will accept an event with "log/data" type
         and pass it to its handlers.
         """
-        private_run_property.side_effect = [True, False]
-
         protocol = esl.ESLProtocol()
+        private_run_property.side_effect = [True, False]
         handlers = [mock.Mock(), mock.Mock()]
         protocol.event_handlers['log'] = handlers
 
@@ -540,15 +537,14 @@ class ESLProtocolTest(TestInboundESLBase):
         self.assertTrue(handlers[1].called)
         handlers[1].assert_called_with(event)
 
-    @mock.patch('greenswitch.esl.ESLProtocol.run', new_callable=mock.PropertyMock)
+    @mock.patch('greenswitch.esl.ESLProtocol._run', create=True, new_callable=mock.PropertyMock)
     def test_process_events_with_no_handlers_will_rely_on_generic(self, private_run_property):
         """
         `process_events` will rely only on handlers for "*" if
         a given event has no handlers.
         """
-        private_run_property.side_effect = [True, False]
-
         protocol = esl.ESLProtocol()
+        private_run_property.side_effect = [True, False]
         fallback_handlers = [mock.Mock(), mock.Mock()]
         protocol.event_handlers['*'] = fallback_handlers
         other_handlers = [mock.Mock(), mock.Mock()]
@@ -569,16 +565,15 @@ class ESLProtocolTest(TestInboundESLBase):
         self.assertFalse(other_handlers[0].called)
         self.assertFalse(other_handlers[1].called)
 
-    @mock.patch('greenswitch.esl.ESLProtocol.run', new_callable=mock.PropertyMock)
+    @mock.patch('greenswitch.esl.ESLProtocol._run', create=True, new_callable=mock.PropertyMock)
     def test_process_events_with_pre_handler(self, private_run_property):
         """
         `process_events` will call for `before_handle` property
         if it was implemented on such protocol instance, but the
         event will also be passed to default handlers.
         """
-        private_run_property.side_effect = [True, False]
-
         protocol = esl.ESLProtocol()
+        private_run_property.side_effect = [True, False]
         protocol.before_handle = mock.Mock()
         some_handlers = [mock.Mock(), mock.Mock()]
         protocol.event_handlers['some-handlers'] = some_handlers
@@ -598,16 +593,15 @@ class ESLProtocolTest(TestInboundESLBase):
         self.assertTrue(some_handlers[1].called)
         some_handlers[1].assert_called_with(event)
 
-    @mock.patch('greenswitch.esl.ESLProtocol.run', new_callable=mock.PropertyMock)
+    @mock.patch('greenswitch.esl.ESLProtocol._run', create=True, new_callable=mock.PropertyMock)
     def test_process_events_with_post_handler(self, private_run_property):
         """
         `process_events` will call for `after_handle` property
         if it was implemented on such protocol instance, but the
         event will also be passed to default handlers.
         """
-        private_run_property.side_effect = [True, False]
-
         protocol = esl.ESLProtocol()
+        private_run_property.side_effect = [True, False]
         protocol.after_handle = mock.Mock()
         some_handlers = [mock.Mock(), mock.Mock()]
         protocol.event_handlers['some-handlers'] = some_handlers

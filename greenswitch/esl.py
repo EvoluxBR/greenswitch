@@ -55,10 +55,6 @@ class ESLProtocol(object):
         self._lingering = False
         self.connected = False
 
-    @property
-    def run(self):
-        return self._run
-
     def start_event_handlers(self):
         self._receive_events_greenlet = gevent.spawn(self.receive_events)
         self._process_events_greenlet = gevent.spawn(self.process_events)
@@ -166,7 +162,7 @@ class ESLProtocol(object):
 
     def process_events(self):
         logging.debug('Event Processor Running')
-        while self.run:
+        while self._run:
             if not self._process_esl_event_queue:
                 gevent.sleep(1)
                 continue
