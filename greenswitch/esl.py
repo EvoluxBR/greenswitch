@@ -84,6 +84,7 @@ class ESLProtocol(object):
                 self.sock.close()
                 # logging.exception("Error reading from socket.")
                 break
+
             if not data:
                 if self.connected:
                     logging.error("Error receiving data, is FreeSWITCH running?")
@@ -175,8 +176,10 @@ class ESLProtocol(object):
                 handlers = self.event_handlers.get(event.headers.get('Event-Subclass'))
             else:
                 handlers = self.event_handlers.get(event.headers.get('Event-Name'))
+
             if event.headers.get('Content-Type') == 'text/disconnect-notice':
                 handlers = self.event_handlers.get('DISCONNECT')
+
             if not handlers and event.headers.get('Content-Type') == 'log/data':
                 handlers = self.event_handlers.get('log')
 

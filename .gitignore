@@ -21,3 +21,6 @@ var/
 .pytest_cache/*
 .tags*
 .vscode/
+
+# pytest coverage plugin
+.coverage
