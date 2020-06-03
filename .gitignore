@@ -24,3 +24,5 @@ var/
 
 # pytest coverage plugin
 .coverage
+
+.tool-versions
