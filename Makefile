@@ -7,3 +7,11 @@ test:
 
 test-coverage:
 	pytest --spec -s tests/ --cov=./greenswitch --cov-report term-missing
+
+build:
+	python setup.py sdist bdist_wheel
+
+upload:
+	python -m twine upload dist/*
+
+release: build upload
