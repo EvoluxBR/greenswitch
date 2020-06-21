@@ -287,6 +287,10 @@ class OutboundSession(ESLProtocol):
     @property
     def caller_id_number(self):
         return self.session_data.get('Caller-Caller-ID-Number')
+    
+    @property
+    def get_channel_variable(self, variable_name):
+        return self.session_data.get(str(variable_name))
 
     def on_disconnect(self, event):
         if self._lingering:
