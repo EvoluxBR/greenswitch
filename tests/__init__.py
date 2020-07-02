@@ -42,5 +42,13 @@ class TestInboundESLBase(unittest.TestCase):
             self.send_fake_event_plain(event)
         gevent.sleep(0.1)
 
+
+class FakeOutboundSession(esl.OutboundSession):
+    def start_event_handlers(self):
+        pass
+
+    def send(self, command):
+        return esl.ESLEvent('')
+
 if __name__ == '__main__':
     unittest.main()
