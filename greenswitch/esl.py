@@ -295,6 +295,8 @@ class OutboundSession(ESLProtocol):
             logging.debug('Socket closed: %s' % event.headers)
         logging.debug('Raising OutboundSessionHasGoneAway for all pending'
                       'results')
+        self._outbound_connected = False
+
         for event_name in self.expected_events:
             for variable, value, async_result in \
                     self.expected_events[event_name]:
@@ -304,7 +306,6 @@ class OutboundSession(ESLProtocol):
             cmd.set_exception(OutboundSessionHasGoneAway())
 
     def on_hangup(self, event):
-        self._outbound_connected = False
         logging.info('Caller %s has gone away.' % self.caller_id_number)
 
     def on_event(self, event):
@@ -460,10 +461,10 @@ class OutboundSession(ESLProtocol):
         self.send('api uuid_break %s' % self.uuid)
 
     def raise_if_disconnected(self):
-        """This function will raise esl.OutboundSessionHasGoneAway exception
-        if the session is not connected
+        """This function will raise the exception
+        esl.OutboundSessionHasGoneAway if the caller hung up the call
         """
-        if not self._outbound_connected:
+        if self._lingering:
             raise OutboundSessionHasGoneAway
 
 
