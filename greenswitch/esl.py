@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import errno
+import functools
 import logging
 import pprint
 import sys
@@ -295,6 +296,8 @@ class OutboundSession(ESLProtocol):
             logging.debug('Socket closed: %s' % event.headers)
         logging.debug('Raising OutboundSessionHasGoneAway for all pending'
                       'results')
+        self._outbound_connected = False
+
         for event_name in self.expected_events:
             for variable, value, async_result in \
                     self.expected_events[event_name]:
@@ -304,6 +307,7 @@ class OutboundSession(ESLProtocol):
             cmd.set_exception(OutboundSessionHasGoneAway())
 
     def on_hangup(self, event):
+        self._outbound_connected = False
         logging.info('Caller %s has gone away.' % self.caller_id_number)
 
     def on_event(self, event):
@@ -457,6 +461,49 @@ class OutboundSession(ESLProtocol):
         if self._lingering:
             raise OutboundSessionHasGoneAway
         self.send('api uuid_break %s' % self.uuid)
+
+    def raise_if_disconnected(self):
+        """This function will raise the exception
+        esl.OutboundSessionHasGoneAway if the caller hung up the call
+        """
+        if not self._outbound_connected:
+            raise OutboundSessionHasGoneAway
+
+    def while_connected(self):
+        """Returns an object that check if the session is connected in
+        the __enter__ and __exit__ steps, if disconnected will
+        raise greenswitch.esl.OutboundSessionHasGoneAway exception.
+
+        This method can be used as a context manager or decorator.
+
+        Examples:
+        >>> with outbound_session.while_connected():
+        >>>    do_something()
+        >>>
+        >>> @outbound_session.while_connected()
+        >>> def do_something():
+        >>>     ...
+        """
+        class _while_connected(object):
+            def __init__(self, outbound_session):
+                self.outbound_session = outbound_session
+
+            def __enter__(self):
+                self.outbound_session.raise_if_disconnected()
+                return self
+
+            def __exit__(self, exit_type, exit_value, exit_traceback):
+                self.outbound_session.raise_if_disconnected()
+
+            def __call__(self, func):
+                @functools.wraps(func)
+                def decorator(*args, **kwargs):
+                    with self:
+                        return func(*args, **kwargs)
+
+                return decorator
+
+        return _while_connected(self)
 
 
 class OutboundESLServer(object):
