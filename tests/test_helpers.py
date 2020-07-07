@@ -9,14 +9,14 @@ from greenswitch import esl, helpers
 
 
 @pytest.mark.usefixtures("outbound_session")
-@pytest.mark.usefixtures("linger_disconnect_event")
+@pytest.mark.usefixtures("disconnect_event")
 class TestWhileConnected(unittest.TestCase):
     def setUp(self):
         self.outbound_session.connect()
         self.execute_slow_task = mock.MagicMock()
 
     def simulate_caller_hangup(self):
-        self.outbound_session.handle_event(self.linger_disconnect_event)
+        self.outbound_session.on_disconnect(self.disconnect_event)
 
     def test_context_manager(self):
         with self.assertRaises(esl.OutboundSessionHasGoneAway):
