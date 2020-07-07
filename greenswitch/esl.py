@@ -470,9 +470,9 @@ class OutboundSession(ESLProtocol):
             raise OutboundSessionHasGoneAway
 
     def while_connected(self):
-        """Returns a object that check if the session is connected in
-        the __enter__ and __exit__ steps, if not connected will
-        raise the greenswitch.esl.OutboundSessionHasGoneAway exception.
+        """Returns an object that check if the session is connected in
+        the __enter__ and __exit__ steps, if disconnected will
+        raise greenswitch.esl.OutboundSessionHasGoneAway exception.
 
         This method can be used as a context manager or decorator.
 
