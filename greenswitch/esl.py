@@ -272,6 +272,16 @@ class InboundESL(ESLProtocol):
         if response.headers['Reply-Text'] != '+OK accepted':
             raise ValueError('Invalid password.')
 
+    def execute(self, uuid, app, app_args=None):
+        command = 'SendMsg {}\n'.format(uuid)
+        command += 'call-command: execute\n'
+        command += 'execute-app-name: {}'.format(app)
+        if app_args:
+            command += "\nexecute-app-arg: {}".format(app_args)
+
+        return self.send(command)
+
+
     def __enter__(self):
         self.connect()
         return self
