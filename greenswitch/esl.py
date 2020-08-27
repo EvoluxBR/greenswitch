@@ -32,14 +32,30 @@ class ESLEvent(object):
         data = data.strip().splitlines()
         last_key = None
         value = ''
+        is_event = False
+        has_body = False
+        body = '' 
         for line in data:
+            if has_body:
+                #TODO: Check multiline body
+                body += line
+                continue
             if ': ' in line:
                 key, value = line.split(': ', 1)
+                #event can have own body. for example DETECTED_SPEECH
+                if key == 'Event-Name':
+                    is_event = True 
+                if is_event and key == 'Content-Length':
+                    # body is the last header in event
+                    has_body = True
+                    continue
                 last_key = key
             else:
                 key = last_key
                 value += '\n' + line
             self.headers[key.strip()] = value.strip()
+        if has_body and len(body) > 0:
+            self.headers["_body"] = body
 
 
 class ESLProtocol(object):
