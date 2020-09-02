@@ -281,6 +281,12 @@ class InboundESL(ESLProtocol):
 
         return self.send(command)
 
+    def api(self, command, bg=False):
+
+        request = 'api {}'.format(command)
+        if bg:
+            request = 'bg' + request
+        return self.send(request)
 
     def __enter__(self):
         self.connect()
