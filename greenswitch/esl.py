@@ -29,7 +29,7 @@ class ESLEvent(object):
 
     def parse_data(self, data):
         data = unquote(data)
-        data = data.strip().splitlines()
+        data = data.splitlines()
         last_key = None
         value = ''
         for line in data:
