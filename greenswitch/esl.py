@@ -216,10 +216,12 @@ class ESLProtocol(object):
             except (NotConnectedError, socket.error):
                 pass
         self._run = False
-        logging.info("Waiting for receive greenlet exit")
-        self._receive_events_greenlet.join()
-        logging.info("Waiting for event processing greenlet exit")
-        self._process_events_greenlet.join()
+        if self._receive_events_greenlet:
+            logging.info("Waiting for receive greenlet exit")
+            self._receive_events_greenlet.join()
+        if self._process_events_greenlet:
+            logging.info("Waiting for event processing greenlet exit")
+            self._process_events_greenlet.join()
         self.sock.close()
         self.sock_file.close()
 
