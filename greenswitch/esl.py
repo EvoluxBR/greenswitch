@@ -227,12 +227,12 @@ class ESLProtocol(object):
 
 
 class InboundESL(ESLProtocol):
-    def __init__(self, host, port, password):
+    def __init__(self, host, port, password, timeout=5):
         super(InboundESL, self).__init__()
         self.host = host
         self.port = port
         self.password = password
-        self.timeout = 5
+        self.timeout = timeout
         self.connected = False
 
     def connect(self):
