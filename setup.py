@@ -5,8 +5,8 @@
 from setuptools import setup, find_packages
 
 
-with open('README.rst', encoding='utf-8') as f:
-    readme = f.read()
+with open('README.rst', 'rb') as f:
+    readme = f.read().decode('utf-8')
 
 with open('requirements.txt') as f:
     requires = f.readlines()
