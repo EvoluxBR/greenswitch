@@ -1,14 +1,14 @@
 GreenSWITCH: FreeSWITCH Event Socket Protocol
 =============================================
 
+.. image:: https://github.com/EvoluxBR/greenswitch/actions/workflows/tests.yml/badge.svg
+    :target: https://github.com/EvoluxBR/greenswitch/actions
+
 .. image:: https://img.shields.io/pypi/v/greenswitch.svg
     :target: https://pypi.python.org/pypi/greenswitch
 
 .. image:: https://img.shields.io/pypi/dm/greenswitch.svg
     :target: https://pypi.python.org/pypi/greenswitch
-
-.. image:: https://github.com/EvoluxBR/greenswitch/actions/workflows/tests.yml/badge.svg
-    :target: https://github.com/EvoluxBR/greenswitch
 
 Battle proven FreeSWITCH Event Socket Protocol client implementation with Gevent.
 
