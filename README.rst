@@ -1,8 +1,8 @@
 GreenSWITCH: FreeSWITCH Event Socket Protocol
 =============================================
 
-.. image:: https://travis-ci.org/EvoluxBR/greenswitch.svg?branch=master
-    :target: https://travis-ci.org/EvoluxBR/greenswitch
+.. image:: https://github.com/EvoluxBR/greenswitch/actions/workflows/tests.yml/badge.svg
+    :target: https://github.com/EvoluxBR/greenswitch/actions
 
 .. image:: https://img.shields.io/pypi/v/greenswitch.svg
     :target: https://pypi.python.org/pypi/greenswitch
