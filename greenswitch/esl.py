@@ -32,14 +32,30 @@ class ESLEvent(object):
         data = data.strip().splitlines()
         last_key = None
         value = ''
+        is_event = False
+        has_body = False
+        body = '' 
         for line in data:
+            if has_body:
+                #TODO: Check multiline body
+                body += line
+                continue
             if ': ' in line:
                 key, value = line.split(': ', 1)
+                #event can have own body. for example DETECTED_SPEECH
+                if key == 'Event-Name':
+                    is_event = True 
+                if is_event and key == 'Content-Length':
+                    # body is the last header in event
+                    has_body = True
+                    continue
                 last_key = key
             else:
                 key = last_key
                 value += '\n' + line
             self.headers[key.strip()] = value.strip()
+        if has_body and len(body) > 0:
+            self.headers["_body"] = body
 
 
 class ESLProtocol(object):
@@ -78,7 +94,7 @@ class ESLProtocol(object):
         buf = ''
         while self._run:
             try:
-                data = self.sock_file.readline()
+                data = self.sock_file.readline().decode('utf-8')
             except Exception:
                 self._run = False
                 self.connected = False
@@ -114,7 +130,7 @@ class ESLProtocol(object):
             # FIXME(italo): if not data raise error
             data += sock.read(length - data_length)
             data_length = len(data)
-        return data
+        return data.decode('utf-8')
 
     def handle_event(self, event):
         if event.headers['Content-Type'] == 'auth/request':
@@ -245,7 +261,7 @@ class InboundESL(ESLProtocol):
                                     % self.timeout)
         self.connected = True
         self.sock.settimeout(None)
-        self.sock_file = self.sock.makefile()
+        self.sock_file = self.sock.makefile('rb')
         self.start_event_handlers()
         self._auth_request_event.wait()
         if not self.connected:
@@ -257,6 +273,22 @@ class InboundESL(ESLProtocol):
         response = self.send('auth %s' % self.password)
         if response.headers['Reply-Text'] != '+OK accepted':
             raise ValueError('Invalid password.')
+
+    def execute(self, uuid, app, app_args=None):
+        command = 'SendMsg {}\n'.format(uuid)
+        command += 'call-command: execute\n'
+        command += 'execute-app-name: {}'.format(app)
+        if app_args:
+            command += "\nexecute-app-arg: {}".format(app_args)
+
+        return self.send(command)
+
+    def api(self, command, bg=False):
+
+        request = 'api {}'.format(command)
+        if bg:
+            request = 'bg' + request
+        return self.send(request)
 
     def __enter__(self):
         self.connect()
