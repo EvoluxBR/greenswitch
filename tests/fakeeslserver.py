@@ -19,6 +19,7 @@ class FakeESLServer(object):
         self.commands['api khomp show links concise'] = ('B00L00:kes{SignalLost},sync\n' +
                                                          'B01L00:kesOk,sync\n' +
                                                          'B01L01:[ksigInactive]\n')
+        self.commands['api fake show-special-chars'] = u'%^ć%$éí#$'
 
     def start_server(self):
         self.server = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
@@ -40,7 +41,7 @@ class FakeESLServer(object):
         self._client_socket.send('\n'.encode('utf-8'))
 
     def api_response(self, data):
-        data_length = len(data)
+        data_length = len(data.encode('utf-8'))
         self._client_socket.send('Content-Type: api/response\n'.encode('utf-8'))
         self._client_socket.send(('Content-Length: %d\n\n' % data_length).encode('utf-8'))
         self._client_socket.send(data.encode('utf-8'))
@@ -91,8 +92,9 @@ class FakeESLServer(object):
             self.handle_request(request)
 
     def fake_event_plain(self, data):
+        data_length = len(data)
         self.protocol_send(['Content-Type: text/event-plain',
-                            'Content-Length: %s' % len(data)])
+                            'Content-Length: %s' % data_length])
         self._client_socket.send(data)
 
     def fake_raw_event_plain(self, data):
