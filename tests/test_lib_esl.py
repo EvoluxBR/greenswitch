@@ -17,6 +17,11 @@ from tests import fakeeslserver
 
 
 class TestInboundESL(TestInboundESLBase):
+
+    def test_sock_read_with_special_characters(self):
+        result = self.esl.send('api fake show-special-chars')
+        self.assertEqual(self.switch_esl.commands['api fake show-special-chars'], result.data)
+
     def test_connect(self):
         """Should connect in FreeSWITCH ESL Server."""
         switch_esl = fakeeslserver.FakeESLServer('0.0.0.0', 8022, 'ClueCon')
@@ -81,6 +86,7 @@ class TestInboundESL(TestInboundESLBase):
         def on_sofia_pre_register(self, event):
             self.pre_register = True
 
+
         self.esl.pre_register = False
         self.esl.on_sofia_pre_register = types.MethodType(
             on_sofia_pre_register, self.esl)
@@ -90,6 +96,7 @@ class TestInboundESL(TestInboundESLBase):
         event_plain = dedent("""\
             Event-Name: CUSTOM
             Event-Subclass: sofia::pre_register""")
+
         self.send_fake_event_plain(event_plain)
         self.assertTrue(self.esl.pre_register)
 
@@ -410,7 +417,7 @@ class ESLProtocolTest(TestInboundESLBase):
         protocol._commands_sent.append(mock.Mock())
         protocol.sock = mock.Mock()
         protocol.sock_file = mock.Mock()
-        protocol.sock_file.read.return_value = '123456789'
+        protocol.sock_file.read.return_value = b'123456789'
         event = mock.Mock()
         event.headers = {
             'Content-Type': 'api/response',
@@ -448,7 +455,7 @@ class ESLProtocolTest(TestInboundESLBase):
         protocol = esl.ESLProtocol()
         protocol.connected = True
         protocol.sock_file = mock.Mock()
-        protocol.sock_file.read.return_value = '123'
+        protocol.sock_file.read.return_value = b'123'
         event = mock.Mock()
         event.headers = {
             'Content-Type': 'text/rude-rejection',
@@ -645,3 +652,4 @@ class ESLProtocolTest(TestInboundESLBase):
         self.assertTrue(protocol._process_events_greenlet.join.called)
         self.assertTrue(protocol.sock.close.called)
         self.assertTrue(protocol.sock_file.close.called)
+
