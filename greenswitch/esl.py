@@ -90,7 +90,7 @@ class ESLProtocol(object):
 
             if not data:
                 if self.connected:
-                    logging.error("Error receiving data, is FreeSWITCH running?")
+                    logging.debug("Error receiving data, is FreeSWITCH running?")
                     self.connected = False
                     self._run = False
                 break
