@@ -68,3 +68,13 @@ class TestWhileConnectedMethod(unittest.TestCase):
         with self.assertRaises(ValueError):
             with self.outbound_session.while_connected():
                 raise ValueError("http exception")
+
+    def test_raising_OutboundSessionHasGoneAway_in_session_stop_will_pass(self):
+        # make outbound_session.send raise OutboundSessionHasGoneAway
+        self.outbound_session.send = mock.MagicMock(side_effect=esl.OutboundSessionHasGoneAway)
+        # mock sock.close
+        self.outbound_session.sock.close = mock.MagicMock()
+
+        # stop and assert sock.close is called
+        self.outbound_session.stop()
+        assert self.outbound_session.sock.close.called
