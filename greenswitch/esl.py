@@ -217,7 +217,7 @@ class ESLProtocol(object):
         if self.connected:
             try:
                 self.send('exit')
-            except (NotConnectedError, socket.error):
+            except (NotConnectedError, socket.error, OutboundSessionHasGoneAway):
                 pass
         self._run = False
         if self._receive_events_greenlet:
