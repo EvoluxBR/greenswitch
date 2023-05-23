@@ -359,7 +359,12 @@ class OutboundSession(ESLProtocol):
         if self._outbound_connected:
             return self.session_data
 
-        resp = self.send('connect')
+        try:
+            resp = self.send('connect')
+        except OutboundSessionHasGoneAway as e:
+            # cleanup before raising exception
+            self.stop()
+            raise e
         self.session_data = resp.headers
         self._outbound_connected = True
 
