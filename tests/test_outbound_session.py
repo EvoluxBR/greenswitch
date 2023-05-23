@@ -25,6 +25,23 @@ class TestOutboundSession(unittest.TestCase):
         with self.assertRaises(esl.OutboundSessionHasGoneAway):
             self.outbound_session.raise_if_disconnected()
 
+    def test_raising_OutboundSessionHasGoneAway_in_session_connect_will_call_sock_close(self):
+        # Here we are socket connected, but not freeswitch connected
+        # So any exception raised in session.connect should call sock.close
+        self.outbound_session.connected = False
+
+        # make outbound_session.send raise OutboundSessionHasGoneAway
+        self.outbound_session.send = mock.MagicMock(side_effect=esl.OutboundSessionHasGoneAway)
+
+        # mock sock.close
+        self.outbound_session.sock.close = mock.MagicMock()
+
+        # attempt to connect and assert sock.close is called
+        with self.assertRaises(esl.OutboundSessionHasGoneAway):
+            self.outbound_session.connect()
+
+        assert self.outbound_session.sock.close.called
+
 
 @pytest.mark.usefixtures("outbound_session")
 @pytest.mark.usefixtures("disconnect_event")
