@@ -14,6 +14,9 @@ from gevent.queue import Queue
 from six.moves.urllib.parse import unquote
 
 
+class Timeout(Exception):
+    pass
+
 class NotConnectedError(Exception):
     pass
 
@@ -251,7 +254,10 @@ class InboundESL(ESLProtocol):
         self.sock.settimeout(None)
         self.sock_file = self.sock.makefile('rb')
         self.start_event_handlers()
-        self._auth_request_event.wait()
+        auth_event_received = self._auth_request_event.wait(timeout=self.timeout)
+        if not auth_event_received:
+            raise Timeout('Timeout %d reach waiting for auth event' % self.timeout)
+
         if not self.connected:
             raise NotConnectedError('Server closed connection, check '
                                     'FreeSWITCH config.')
