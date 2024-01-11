@@ -19,7 +19,7 @@ def outbound_session(request):
 
 @pytest.fixture(scope="function")
 def disconnect_event(request):
-    event_plain = """
+    event_plain = """\
         Content-Type: text/disconnect-notice
         Controlled-Session-UUID: e4c3f7e0-bcc1-11ea-a87f-a5a0acaa832c
         Content-Disposition: disconnect
