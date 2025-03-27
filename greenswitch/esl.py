@@ -378,8 +378,11 @@ class OutboundSession(ESLProtocol):
     def park(self):
         self.call_command('park')
 
-    def linger(self):
-        self.send('linger')
+    def linger(self, timeout=None):
+        if timeout is not None:
+            self.send(f'linger {timeout}')
+        else:
+            self.send('linger')
 
     def playback(self, path, block=True):
         if not block:
