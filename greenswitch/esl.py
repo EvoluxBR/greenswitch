@@ -108,13 +108,14 @@ class ESLProtocol(object):
         data = sock.read(length)
         data_length = len(data)
         while data_length < length:
+            data += sock.read(length - data_length)
+            if len(data) == data_length:
+                raise NotConnectedError('Socket error on receiving data!')
             logging.warn(
                 'Socket should read %s bytes, but actually read %s bytes. '
                 'Consider increasing "net.core.rmem_default".' %
                 (length, data_length)
             )
-            # FIXME(italo): if not data raise error
-            data += sock.read(length - data_length)
             data_length = len(data)
         if data is not None:
             data = data.decode('utf-8')
