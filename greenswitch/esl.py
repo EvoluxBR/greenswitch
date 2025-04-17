@@ -333,7 +333,7 @@ class OutboundSession(ESLProtocol):
                 async_response.set(event)
                 self.expected_events[event_name].remove(expected_event)
 
-    def call_command(self, app_name, app_args=None):
+    def call_command(self, app_name, app_args=None, block=False, response_timeout=None):
         """Wraps app_name and app_args into FreeSWITCH Outbound protocol:
         Example:
                 sendmsg
@@ -344,16 +344,31 @@ class OutboundSession(ESLProtocol):
         # We're not allowed to send more commands.
         # lingering True means we already received a hangup from the caller
         # and any commands sent at this time to the session will fail
-        if self._lingering:
-            raise OutboundSessionHasGoneAway()
 
-        command = "sendmsg\n" \
-                  "call-command: execute\n" \
-                  "execute-app-name: %s" % app_name
-        if app_args:
-            command += "\nexecute-app-arg: %s" % app_args
+        def _perform_call_command(app_name, app_args):
+            if self._lingering:
+                raise OutboundSessionHasGoneAway()
 
-        return self.send(command)
+            command = "sendmsg\n" \
+                      "call-command: execute\n" \
+                      "execute-app-name: %s" % app_name
+            if app_args:
+                command += "\nexecute-app-arg: %s" % app_args
+
+            return self.send(command)
+
+        if not block:
+            return self._perform_call_command(app_name, path)
+
+        async_response = gevent.event.AsyncResult()
+        expected_event = "CHANNEL_EXECUTE_COMPLETE"
+        expected_variable = "current_application"
+        expected_variable_value = app_name
+        self.register_expected_event(expected_event, expected_variable,
+                                     expected_variable_value, async_response)
+        self._perform_call_command(app_name, path)
+        event = async_response.get(block=True, timeout=response_timeout)
+        return event
 
     def connect(self):
         if self._outbound_connected:
@@ -452,6 +467,9 @@ class OutboundSession(ESLProtocol):
         self.call_command('say', args)
         event = async_response.get(block=True, timeout=response_timeout)
         return event
+
+    def bridge(self, args, block=True, response_timeout=None):
+        return self.call_command("bridge", args, block=block, response_timeout=response_timeout)
 
     def register_expected_event(self, expected_event, expected_variable,
                                 expected_value, async_response):
