@@ -13,7 +13,7 @@ with open('requirements.txt') as f:
 
 setup(
     name='greenswitch',
-    version='0.0.18',
+    version='0.0.19',
     description=u'Battle proven FreeSWITCH Event Socket Protocol client implementation with Gevent.',
     long_description=readme,
     author=u'Ítalo Rossi',
