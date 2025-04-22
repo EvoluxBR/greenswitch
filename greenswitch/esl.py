@@ -358,7 +358,7 @@ class OutboundSession(ESLProtocol):
             return self.send(command)
 
         if not block:
-            return self._perform_call_command(app_name, path)
+            return _perform_call_command(app_name, app_args)
 
         async_response = gevent.event.AsyncResult()
         expected_event = "CHANNEL_EXECUTE_COMPLETE"
@@ -366,7 +366,7 @@ class OutboundSession(ESLProtocol):
         expected_variable_value = app_name
         self.register_expected_event(expected_event, expected_variable,
                                      expected_variable_value, async_response)
-        self._perform_call_command(app_name, path)
+        _perform_call_command(app_name, app_args)
         event = async_response.get(block=True, timeout=response_timeout)
         return event
 
