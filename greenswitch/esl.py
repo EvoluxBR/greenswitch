@@ -314,8 +314,10 @@ class OutboundSession(ESLProtocol):
 
     def on_hangup(self, event):
         self._outbound_connected = False
-        for (_var, _value, async_response) in self.expected_events:
-            async_response.put(EslEvent("-ERR Socket has gone away\n\n"))
+        for event_name in self.expected_events:
+            for variable, value, async_result in \
+                    self.expected_events[event_name]:
+                async_result.set_exception(OutboundSessionHasGoneAway())
 
         logging.info('Caller %s has gone away.' % self.caller_id_number)
 
