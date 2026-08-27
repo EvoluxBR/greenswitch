@@ -354,6 +354,56 @@ class TestInboundESL(TestInboundESLBase):
         self.assertEqual(self.esl.parsed_event.headers['variable_switch_r_sdp'],
                          expected_variable_value)
 
+    def test_event_with_blank_values_trailing(self):
+        """Should not break parser when fed a key with an empty value in last header"""
+
+        self.log_blanks = None
+
+        def on_log(event):
+            self.log_blanks = event
+        self.esl.register_handle('log', on_log)
+
+        event_plain = dedent("""\
+            Content-Type: log/data
+            Content-Length: 122
+            Log-Level: 4
+            Text-Channel: 0
+            Log-File: sofia_reg.c
+            Log-Func: sofia_reg_check_gateway
+            Log-Line: 510
+            User-Data: 
+            
+            2021-04-03 19:05:48.882502 [WARNING] sofia_reg.c:510 ast-test-102 Failed Registration [503], setting retry to 30 seconds.
+""")
+        self.send_fake_raw_event_plain(event_plain)
+        self.assertEqual(self.log_blanks.headers['User-Data'],
+                         '')
+        
+    def test_event_with_blank_values(self):
+        """Should not break parser when fed a key with an empty value in any position"""
+
+        self.log_blanks = None
+
+        def on_log(event):
+            self.log_blanks = event
+        self.esl.register_handle('log', on_log)
+
+        event_plain = dedent("""\
+            Content-Type: log/data
+            Content-Length: 122
+            Log-Level: 4
+            User-Data: 
+            Text-Channel: 0
+            Log-File: sofia_reg.c
+            Log-Func: sofia_reg_check_gateway
+            Log-Line: 510
+            
+            2021-04-03 19:05:48.882502 [WARNING] sofia_reg.c:510 ast-test-102 Failed Registration [503], setting retry to 30 seconds.
+""")
+        self.send_fake_raw_event_plain(event_plain)
+        self.assertEqual(self.log_blanks.headers['User-Data'],
+                         '')
+
     def test_api_response(self):
         """Should properly read api response from ESL."""
         response = self.esl.send('api khomp show links concise')
