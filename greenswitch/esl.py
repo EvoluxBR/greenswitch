@@ -29,6 +29,8 @@ class ESLEvent(object):
 
     def parse_data(self, data):
         data = unquote(data)
+        for p in data.split("\n\n"):
+                self.headers["body"] = p
         data = data.strip().splitlines()
         last_key = None
         value = ''
