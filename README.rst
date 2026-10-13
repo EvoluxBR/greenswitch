@@ -44,6 +44,7 @@ Basic functions are implemented already:
  - uuid_kill
  - answer
  - sleep
+ - return channel variable
 
 With current api, it's easy to mix sync and async actions, for example:
 play_and_get_digits method will return the pressed DTMF digits in a block mode,
